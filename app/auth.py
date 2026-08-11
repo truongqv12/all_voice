@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
-from fastapi import Depends, Header, HTTPException, status
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .config import Settings, get_settings
+
+
+bearer_auth = HTTPBearer(
+    auto_error=False,
+    scheme_name="BearerAuth",
+    bearerFormat="API key",
+    description="API key configured in the API_KEYS environment variable.",
+)
 
 
 def _unauthorized(message: str) -> HTTPException:
@@ -15,13 +26,16 @@ def _unauthorized(message: str) -> HTTPException:
 
 
 def require_api_key(
-    authorization: str | None = Header(default=None),
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Depends(bearer_auth),
+    ],
     settings: Settings = Depends(get_settings),
 ) -> str:
     """FastAPI dependency: validate the bearer token, return it, or raise 401."""
-    if not authorization or not authorization.startswith("Bearer "):
+    if credentials is None or credentials.scheme != "Bearer":
         raise _unauthorized("Missing bearer token in Authorization header.")
-    token = authorization.split(" ", 1)[1].strip()
+    token = credentials.credentials.strip()
     if token not in settings.api_key_set:
         raise _unauthorized("Invalid API key provided.")
     return token

@@ -31,6 +31,26 @@ def test_auth_required():
     assert "error" in r.json()
 
 
+def test_openapi_uses_bearer_security_scheme():
+    schema = app.openapi()
+    bearer = schema["components"]["securitySchemes"]["BearerAuth"]
+
+    assert bearer["type"] == "http"
+    assert bearer["scheme"] == "bearer"
+    for path, path_item in schema["paths"].items():
+        if not path.startswith("/v1/"):
+            continue
+        for operation in path_item.values():
+            assert {"BearerAuth": []} in operation["security"]
+            assert not any(
+                parameter.get("in") == "header"
+                and parameter.get("name", "").lower() == "authorization"
+                for parameter in operation.get("parameters", [])
+            )
+
+    assert "security" not in schema["paths"]["/health"]["get"]
+
+
 def test_models():
     r = client.get("/v1/models", headers=AUTH)
     assert r.status_code == 200
