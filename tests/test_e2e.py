@@ -25,6 +25,12 @@ def test_health():
     assert r.json()["status"] == "ok"
 
 
+def test_openapi_reports_application_version():
+    schema = client.get("/openapi.json").json()
+
+    assert schema["info"]["version"] == "0.1.1"
+
+
 def test_auth_required():
     assert client.get("/v1/models").status_code == 401
     assert client.get("/v1/voices").status_code == 401
@@ -69,6 +75,19 @@ def test_openapi_declares_audio_responses_as_binary():
     assert audio_types == set(content)
     for media_type in audio_types:
         assert content[media_type]["schema"] == {"type": "string", "format": "binary"}
+
+
+def test_swagger_docs_install_audio_response_plugin():
+    response = client.get("/docs")
+
+    assert response.status_code == 200
+    assert "swagger-ui-dist@5.32.6" in response.text
+    assert "AudioResponsePlugin" in response.text
+    assert "URL.createObjectURL" in response.text
+    assert "plugins: [AudioResponsePlugin]" in response.text
+    assert "__OPENAPI_URL__" not in response.text
+    assert "/docs" not in app.openapi()["paths"]
+    assert client.get("/redoc").status_code == 200
 
 
 def test_models():

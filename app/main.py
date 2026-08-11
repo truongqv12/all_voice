@@ -8,9 +8,11 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from . import __version__
 from .backends.registry import registry
 from .backends.vieneu_backend import VieNeuBackend
 from .config import get_settings
+from .docs_ui import get_audio_swagger_ui_html
 from .logging_config import get_logger, setup_logging
 from .routers import models, speech, voices, voices_admin
 from .voice_store import voice_store
@@ -69,15 +71,16 @@ def create_app() -> FastAPI:
 
     app = FastAPI(
         title="all-voice",
-        version="0.1.0",
+        version=__version__,
         description=API_DESCRIPTION,
         openapi_tags=TAGS_METADATA,
+        docs_url=None,
     )
     _register_backends()
     _reenrol_cloned_voices()
     log.info(
-        "ready | device=%s backends=%s cloned_voices=%d max_concurrency=%d",
-        settings.device, registry.models(), len(voice_store.list()), settings.max_concurrency,
+        "ready | version=%s device=%s backends=%s cloned_voices=%d max_concurrency=%d",
+        __version__, settings.device, registry.models(), len(voice_store.list()), settings.max_concurrency,
     )
 
     app.include_router(speech.router, prefix="/v1")
@@ -129,6 +132,13 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["system"], summary="Liveness probe")
     async def health() -> dict:
         return {"status": "ok", "models": registry.models()}
+
+    @app.get("/docs", include_in_schema=False)
+    async def swagger_docs():
+        return get_audio_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=f"{app.title} - Swagger UI",
+        )
 
     return app
 
