@@ -1,0 +1,39 @@
+[project]
+name = "all-voice"
+version = "0.1.0"
+description = "OpenAI-compatible, multi-backend TTS gateway (first backend: VieNeu-TTS)"
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    # Upper bound so a modern numba (via vieneu->librosa) can resolve; older
+    # numba pins numpy and would drag in an unbuildable llvmlite.
+    "numpy>=1.26,<2.3",
+    "av>=13.0",
+    "python-multipart>=0.0.9",
+    "vieneu>=3.2.4",
+]
+
+[project.optional-dependencies]
+# Voice cloning needs VieNeu's PyTorch engine (ONNX cannot enrol clones).
+# CPU wheels install by default on Windows/Linux. For CUDA, install torch from
+# the PyTorch index, then set DEVICE=cuda.
+clone = [
+    "torch>=2.8.0",
+    "torchaudio>=2.8.0",
+    "transformers==4.57.6",
+    "neucodec>=0.0.4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

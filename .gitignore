@@ -1,0 +1,38 @@
+# --- Python ---
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# --- Secrets / local config ---
+.env
+.claude/settings.local.json
+
+# --- Runtime data & logs (generated, not source) ---
+# data/  = cloned-voice samples + registry.json
+# logs/  = app.log (rotating) + server.log
+# .hf_cache/ = only if HF_HOME points here (model cache is normally ~/.cache/huggingface)
+data/
+logs/
+.hf_cache/
+
+# --- Generated audio (keep the test clone sample) ---
+*.wav
+!tests/*.wav
+*.mp3
+*.flac
+*.aac
+*.opus
+
+# --- Test / tooling caches ---
+.pytest_cache/
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/

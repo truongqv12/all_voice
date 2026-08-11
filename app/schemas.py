@@ -1,0 +1,176 @@
+"""Pydantic request/response models — kept schema-compatible with the OpenAI
+Audio Speech API so the official `openai` SDK works unmodified."""
+
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field, field_validator
+
+ResponseFormat = Literal["mp3", "opus", "aac", "flac", "wav", "pcm"]
+
+
+class SpeechRequest(BaseModel):
+    """Body of POST /v1/audio/speech (mirrors OpenAI's schema).
+
+    Unknown `model` falls back to the default backend and an unknown/`alloy`-style
+    `voice` falls back to the backend's first preset, so the stock OpenAI SDK works
+    unmodified. The tuning knobs below are an OpenAI extension: pass them via the
+    SDK's `extra_body`. VieNeu is the reference for their names/semantics; other
+    backends map or ignore them.
+    """
+
+    model: str = Field(
+        description="Backend name, e.g. `vieneu`. Unknown names (`tts-1`) route to the default backend.",
+        examples=["vieneu"],
+    )
+    input: str = Field(
+        min_length=1, max_length=4096,
+        description="Text to speak (≤ 4096 chars). Punctuation drives pauses; embed cues like `[cười]`; Vietnamese⇄English code-switching works inline.",
+        examples=["Xin chào, đây là all-voice."],
+    )
+    # OpenAI accepts a voice name string OR a custom-voice object {"id": "..."}.
+    voice: str | dict[str, Any] = Field(
+        description="Preset name (e.g. `Trúc Ly`), a cloned-voice id (`voice_...`), or an object `{\"id\": \"voice_...\"}`.",
+        examples=["Trúc Ly"],
+    )
+    response_format: ResponseFormat = Field(
+        default="mp3", description="Output container: mp3/opus/aac/flac/wav/pcm.",
+    )
+    # Applied gateway-side via pitch-preserving time-stretch (works for all backends).
+    speed: float = Field(
+        default=1.0, ge=0.25, le=4.0,
+        description="Playback speed 0.25–4.0. Applied gateway-side (pitch-preserving time-stretch); `1.0` = no processing.",
+    )
+    # Accepted for OpenAI compatibility; not applied by every backend yet.
+    instructions: str | None = Field(
+        default=None, description="Accepted for OpenAI compatibility; not applied by every backend yet.",
+    )
+
+    # --- Backend tuning knobs (OpenAI extension; pass via `extra_body`). ---
+    # VieNeu is the reference: names/semantics follow it. Other backends map
+    # these to their own params or ignore unknown ones. None => backend default.
+    style: Literal["tu_nhien", "tin_tuc", "doc_truyen"] | None = Field(
+        default=None, description="Reading style: tu_nhien (natural) / tin_tuc (news) / doc_truyen (storytelling).",
+    )
+    temperature: float | None = Field(
+        default=None, ge=0.1, le=2.0, description="Sampling temperature; higher = more expressive, lower = more stable.",
+    )
+    top_k: int | None = Field(default=None, ge=1, le=100, description="Top-k sampling.")
+    top_p: float | None = Field(default=None, ge=0.0, le=1.0, description="Nucleus (top-p) sampling.")
+    repetition_penalty: float | None = Field(
+        default=None, ge=1.0, le=2.0, description="Penalty against repeated sounds.",
+    )
+    silence_p: float | None = Field(
+        default=None, ge=0.0, le=2.0, description="Pause-length multiplier between phrases.",
+    )
+    crossfade_p: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Cross-fade smoothing when stitching chunks.",
+    )
+    max_chars: int | None = Field(
+        default=None, ge=32, le=512, description="Chunk size when splitting long input.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model": "vieneu",
+                    "input": "Ngày xửa ngày xưa, ở một ngôi làng nhỏ...",
+                    "voice": "Trúc Ly",
+                    "response_format": "mp3",
+                    "speed": 1.0,
+                    "style": "doc_truyen",
+                    "silence_p": 0.3,
+                }
+            ]
+        }
+    }
+
+    #: Keys forwarded to the backend as tuning options.
+    _OPTION_KEYS = (
+        "style", "temperature", "top_k", "top_p", "repetition_penalty",
+        "silence_p", "crossfade_p", "max_chars",
+    )
+
+    def backend_options(self) -> dict[str, Any]:
+        """Non-null tuning options to hand to the backend."""
+        return {k: v for k in self._OPTION_KEYS if (v := getattr(self, k)) is not None}
+
+    @field_validator("voice")
+    @classmethod
+    def _normalize_voice(cls, v: str | dict[str, Any]) -> str:
+        if isinstance(v, dict):
+            voice_id = v.get("id")
+            if not voice_id:
+                raise ValueError("voice object must contain a non-empty 'id'")
+            return str(voice_id)
+        return v
+
+
+class VoiceInfo(BaseModel):
+    id: str
+    name: str
+    model: str
+    language: str = "vi"
+    styles: list[str] = Field(default_factory=list)
+
+
+class VoiceList(BaseModel):
+    object: str = "list"
+    data: list[VoiceInfo]
+
+
+class ModelInfo(BaseModel):
+    id: str
+    object: str = "model"
+    created: int
+    owned_by: str = "all-voice"
+
+
+class ModelList(BaseModel):
+    object: str = "list"
+    data: list[ModelInfo]
+
+
+class CustomVoice(BaseModel):
+    """OpenAI custom-voice object (POST /v1/audio/voices response)."""
+
+    id: str
+    created_at: int
+    name: str
+    object: str = "audio.voice"
+
+
+class CustomVoiceList(BaseModel):
+    object: str = "list"
+    data: list[CustomVoice]
+
+
+class DeletedVoice(BaseModel):
+    id: str
+    object: str = "audio.voice"
+    deleted: bool = True
+
+
+class VoiceConsent(BaseModel):
+    """OpenAI voice-consent object (POST /v1/audio/voice_consents response)."""
+
+    id: str
+    created_at: int
+    language: str
+    name: str
+    object: str = "audio.voice_consent"
+
+
+class ErrorDetail(BaseModel):
+    message: str
+    type: str = "invalid_request_error"
+    param: str | None = None
+    code: str | None = None
+
+
+class ErrorResponse(BaseModel):
+    """OpenAI-style error envelope: {"error": {...}}."""
+
+    error: ErrorDetail
