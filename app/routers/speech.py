@@ -19,6 +19,8 @@ from ..schemas import SpeechRequest
 router = APIRouter()
 log = get_logger("speech")
 
+_BINARY_AUDIO_RESPONSE = {"schema": {"type": "string", "format": "binary"}}
+
 
 @router.post(
     "/audio/speech",
@@ -29,8 +31,12 @@ log = get_logger("speech")
         200: {
             "description": "Raw audio bytes in the requested `response_format`.",
             "content": {
-                "audio/mpeg": {}, "audio/ogg": {}, "audio/aac": {},
-                "audio/flac": {}, "audio/wav": {}, "application/octet-stream": {},
+                "audio/mpeg": _BINARY_AUDIO_RESPONSE,
+                "audio/ogg": _BINARY_AUDIO_RESPONSE,
+                "audio/aac": _BINARY_AUDIO_RESPONSE,
+                "audio/flac": _BINARY_AUDIO_RESPONSE,
+                "audio/wav": _BINARY_AUDIO_RESPONSE,
+                "audio/pcm": _BINARY_AUDIO_RESPONSE,
             },
         },
         400: {"description": "Invalid request (input too long, bad parameter)."},

@@ -3,9 +3,11 @@ exercises every endpoint, including a real synthesis for each audio format."""
 
 from __future__ import annotations
 
+import io
 import os
 from pathlib import Path
 
+import av
 import pytest
 from fastapi.testclient import TestClient
 
@@ -49,6 +51,24 @@ def test_openapi_uses_bearer_security_scheme():
             )
 
     assert "security" not in schema["paths"]["/health"]["get"]
+
+
+def test_openapi_declares_audio_responses_as_binary():
+    content = app.openapi()["paths"]["/v1/audio/speech"]["post"]["responses"]["200"][
+        "content"
+    ]
+    audio_types = {
+        "audio/mpeg",
+        "audio/ogg",
+        "audio/aac",
+        "audio/flac",
+        "audio/wav",
+        "audio/pcm",
+    }
+
+    assert audio_types == set(content)
+    for media_type in audio_types:
+        assert content[media_type]["schema"] == {"type": "string", "format": "binary"}
 
 
 def test_models():
@@ -97,6 +117,9 @@ def test_speech_formats(fmt, ctype):
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == ctype
     assert len(r.content) > 0
+    if fmt != "pcm":
+        with av.open(io.BytesIO(r.content)) as container:
+            assert sum(frame.samples for frame in container.decode(audio=0)) > 0
 
 
 def test_openai_alias():
