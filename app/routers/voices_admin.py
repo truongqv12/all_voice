@@ -53,6 +53,14 @@ async def create_voice(
     name: str = Form(...),
     audio_sample: UploadFile = File(...),
     consent: str | None = Form(default=None),  # optional (OpenAI requires it)
+    denoise: bool = Form(
+        default=True,
+        description="Denoise the reference. Leave on for noisy clips; turn OFF for already-clean samples to preserve the original timbre (better clone fidelity).",
+    ),
+    use_ref_codes: bool = Form(
+        default=True,
+        description="Anchor prosody/timbre with reference codes. Keep on for the most accurate clone.",
+    ),
     _key: str = Depends(require_api_key),
 ) -> CustomVoice:
     sample = await audio_sample.read()
@@ -63,9 +71,15 @@ async def create_voice(
 
     backend = _cloning_backend()
     suffix = os.path.splitext(audio_sample.filename or "")[1] or ".wav"
-    record = voice_store.create(name=name, sample=sample, suffix=suffix, backend=backend.name)
+    record = voice_store.create(
+        name=name, sample=sample, suffix=suffix, backend=backend.name,
+        denoise=denoise, use_ref_codes=use_ref_codes,
+    )
     try:
-        backend.register_voice(record.id, record.name, record.sample_path)
+        backend.register_voice(
+            record.id, record.name, record.sample_path,
+            denoise=record.denoise, use_ref_codes=record.use_ref_codes,
+        )
     except Exception as exc:  # enrolment failed -> don't leave a dangling record
         voice_store.delete(record.id)
         raise _error(400, f"Voice enrolment failed: {exc}", "voice_enrolment_failed")

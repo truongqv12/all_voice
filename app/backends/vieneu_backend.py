@@ -88,11 +88,23 @@ class VieNeuBackend(VoiceBackend):
         ]
         return list(self._presets()) + customs
 
-    def register_voice(self, voice_id: str, name: str, sample_path: str) -> None:
+    def register_voice(
+        self,
+        voice_id: str,
+        name: str,
+        sample_path: str,
+        *,
+        denoise: bool = True,
+        use_ref_codes: bool = True,
+    ) -> None:
         engine = self._torch()  # cloning requires the PyTorch engine
         with self._lock:
             # Enrol the clone under our id so infer(voice=voice_id) resolves it.
-            engine.add_voice(voice_id, sample_path)
+            # denoise/use_ref_codes drive the speaker embedding + reference codes
+            # that determine clone fidelity (turn denoise off for clean samples).
+            engine.add_voice(
+                voice_id, sample_path, denoise=denoise, use_ref_codes=use_ref_codes
+            )
         self._custom[voice_id] = name
 
     def remove_voice(self, voice_id: str) -> None:

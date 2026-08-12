@@ -54,8 +54,20 @@ class VoiceBackend(ABC):
         `options` carries backend tuning knobs (style, temperature, silence_p,
         …). A backend maps the keys it understands and ignores the rest."""
 
-    def register_voice(self, voice_id: str, name: str, sample_path: str) -> None:
-        """Enrol a cloned voice from a reference audio file (cloning backends)."""
+    def register_voice(
+        self,
+        voice_id: str,
+        name: str,
+        sample_path: str,
+        *,
+        denoise: bool = True,
+        use_ref_codes: bool = True,
+    ) -> None:
+        """Enrol a cloned voice from a reference audio file (cloning backends).
+
+        `denoise` cleans the reference (leave on for noisy clips, turn off for
+        already-clean samples to preserve timbre); `use_ref_codes` anchors
+        prosody/timbre with reference codes. A backend ignores knobs it lacks."""
         raise NotImplementedError(f"Backend '{self.name}' does not support voice cloning")
 
     def remove_voice(self, voice_id: str) -> None:

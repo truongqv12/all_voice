@@ -22,6 +22,10 @@ class VoiceRecord:
     created_at: int
     backend: str
     sample_path: str
+    # Enrolment quality knobs, persisted so re-enrolment on restart reproduces
+    # the same clone. Defaults keep old registries (missing these keys) valid.
+    denoise: bool = True
+    use_ref_codes: bool = True
 
 
 class VoiceStore:
@@ -44,7 +48,15 @@ class VoiceStore:
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp.replace(self.index_path)
 
-    def create(self, name: str, sample: bytes, suffix: str, backend: str) -> VoiceRecord:
+    def create(
+        self,
+        name: str,
+        sample: bytes,
+        suffix: str,
+        backend: str,
+        denoise: bool = True,
+        use_ref_codes: bool = True,
+    ) -> VoiceRecord:
         voice_id = "voice_" + secrets.token_hex(12)
         sample_path = self.samples_dir / f"{voice_id}{suffix or '.wav'}"
         sample_path.write_bytes(sample)
@@ -54,6 +66,8 @@ class VoiceStore:
             created_at=int(time.time()),
             backend=backend,
             sample_path=str(sample_path),
+            denoise=denoise,
+            use_ref_codes=use_ref_codes,
         )
         self._records[voice_id] = record
         self._save()

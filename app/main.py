@@ -36,7 +36,10 @@ def _reenrol_cloned_voices() -> None:
         backend = registry.get(record.backend)
         if backend is not None and backend.supports_cloning:
             try:
-                backend.register_voice(record.id, record.name, record.sample_path)
+                backend.register_voice(
+                    record.id, record.name, record.sample_path,
+                    denoise=record.denoise, use_ref_codes=record.use_ref_codes,
+                )
             except Exception:  # a bad/missing sample must not block startup
                 continue
 
