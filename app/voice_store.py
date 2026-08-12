@@ -74,12 +74,17 @@ class VoiceStore:
         return record
 
     def list(self) -> list[VoiceRecord]:
+        # Re-read from disk so records created by another worker/instance
+        # sharing this registry.json are visible (workers cache in memory).
+        self._load()
         return list(self._records.values())
 
     def get(self, voice_id: str) -> VoiceRecord | None:
+        self._load()  # pick up cross-worker writes since startup
         return self._records.get(voice_id)
 
     def delete(self, voice_id: str) -> bool:
+        self._load()  # ensure we see (and can remove) cross-worker records
         record = self._records.pop(voice_id, None)
         if record is None:
             return False

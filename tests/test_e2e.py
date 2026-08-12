@@ -225,6 +225,46 @@ def test_voice_clone_lifecycle():
     assert client.get(f"/v1/audio/voices/{voice_id}", headers=AUTH).status_code == 404
 
 
+def test_delete_voice_persisted_by_another_worker():
+    # Simulate a record written to registry.json by a different worker/instance
+    # after this process started: it is on disk but not in our in-memory cache.
+    # The store must re-read disk so the delete still finds and removes it.
+    import json
+
+    from app.voice_store import voice_store
+
+    other_id = "voice_otherworker0000000000ab"
+    raw = json.loads(voice_store.index_path.read_text(encoding="utf-8")) \
+        if voice_store.index_path.exists() else []
+    raw.append({
+        "id": other_id, "name": "From Worker B", "created_at": 0,
+        "backend": "vieneu", "sample_path": "data/voices/samples/missing.wav",
+        "denoise": True, "use_ref_codes": True,
+    })
+    voice_store.index_path.write_text(json.dumps(raw), encoding="utf-8")
+    assert other_id not in voice_store._records  # truly stale in memory
+
+    deleted = client.delete(f"/v1/audio/voices/{other_id}", headers=AUTH)
+    assert deleted.status_code == 200 and deleted.json()["deleted"] is True
+    assert client.get(f"/v1/audio/voices/{other_id}", headers=AUTH).status_code == 404
+
+
+def test_delete_backend_orphan_without_store_record():
+    # A clone that lingers only in a backend's memory (no store record) must
+    # still be deletable — a voice you can see is a voice you can delete.
+    from app.backends.registry import registry
+    from app.voice_store import voice_store
+
+    backend = registry.get("vieneu")
+    orphan_id = "voice_orphaninmemory00000000cd"
+    backend._custom[orphan_id] = "Ghost"
+    assert voice_store.get(orphan_id) is None
+
+    deleted = client.delete(f"/v1/audio/voices/{orphan_id}", headers=AUTH)
+    assert deleted.status_code == 200 and deleted.json()["deleted"] is True
+    assert orphan_id not in backend._custom
+
+
 def test_voice_consent_stub():
     r = client.post(
         "/v1/audio/voice_consents",

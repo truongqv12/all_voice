@@ -70,8 +70,12 @@ class VoiceBackend(ABC):
         prosody/timbre with reference codes. A backend ignores knobs it lacks."""
         raise NotImplementedError(f"Backend '{self.name}' does not support voice cloning")
 
-    def remove_voice(self, voice_id: str) -> None:
-        """Drop a previously enrolled cloned voice."""
+    def remove_voice(self, voice_id: str) -> bool:
+        """Drop a previously enrolled cloned voice.
+
+        Returns True if this backend was holding that clone (so callers can
+        clean up voices that linger in memory but no longer have a store
+        record), False if it did not know the id."""
         raise NotImplementedError(f"Backend '{self.name}' does not support voice cloning")
 
     def resolve_voice(self, voice: str | None) -> str:

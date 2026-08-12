@@ -106,13 +106,22 @@ async def get_custom_voice(voice_id: str, _key: str = Depends(require_api_key)) 
 @router.delete("/audio/voices/{voice_id}", response_model=DeletedVoice, tags=["voices"], summary="Delete a cloned voice")
 async def delete_custom_voice(voice_id: str, _key: str = Depends(require_api_key)) -> DeletedVoice:
     record = voice_store.get(voice_id)
-    if record is None:
-        raise _error(404, f"Voice '{voice_id}' not found.", "voice_not_found")
-    backend = registry.get(record.backend)
-    if backend is not None and backend.supports_cloning:
-        backend.remove_voice(voice_id)
-    voice_store.delete(voice_id)
-    return DeletedVoice(id=voice_id)
+    if record is not None:
+        backend = registry.get(record.backend)
+        if backend is not None and backend.supports_cloning:
+            backend.remove_voice(voice_id)
+        voice_store.delete(voice_id)
+        return DeletedVoice(id=voice_id)
+
+    # No store record (e.g. enrolled on another worker/instance whose write we
+    # already dropped, or an in-memory-only leftover). If a cloning backend
+    # still advertises the voice, remove it there so a voice you can see is a
+    # voice you can delete — otherwise it is genuinely unknown.
+    for name in registry.models():
+        backend = registry.get(name)
+        if backend is not None and backend.supports_cloning and backend.remove_voice(voice_id):
+            return DeletedVoice(id=voice_id)
+    raise _error(404, f"Voice '{voice_id}' not found.", "voice_not_found")
 
 
 @router.post("/audio/voice_consents", response_model=VoiceConsent, tags=["voices"], summary="Issue a voice consent id")

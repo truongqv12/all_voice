@@ -46,6 +46,12 @@ sudo systemctl disable --now all-voice # dừng + tắt autostart
 - Service tự khởi động lại khi crash (`Restart=always`) và khi reboot máy.
 - `--workers 2` mặc định (đổi bằng `WORKERS=4 sudo bash deploy/install-service.sh`) để
   chạy song song thật, vì mỗi engine bị lock tuần tự trong 1 tiến trình.
+- **Giọng clone khi chạy nhiều worker:** danh sách/xóa giọng dùng chung
+  `registry.json` (store đọc lại đĩa mỗi lần) nên xóa được ở bất kỳ worker nào. Nhưng
+  giọng clone đã enrol để **synth** nằm trong RAM của **đúng worker tạo nó** cho tới
+  khi restart — worker khác chưa có sẽ rơi về preset đầu tiên. Muốn mọi worker synth
+  được giọng vừa tạo ngay: `sudo systemctl restart all-voice` (khởi động lại enrol
+  toàn bộ từ `registry.json`). Hoặc chạy `--workers 1` nếu cần nhất quán tức thời.
 - `logs/server.log` gom stdout+stderr (bắt cả log uvicorn và segfault native);
   `logs/app.log` là log ứng dụng xoay vòng (startup/request/synth/lỗi 500).
 

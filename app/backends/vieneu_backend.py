@@ -107,10 +107,10 @@ class VieNeuBackend(VoiceBackend):
             )
         self._custom[voice_id] = name
 
-    def remove_voice(self, voice_id: str) -> None:
+    def remove_voice(self, voice_id: str) -> bool:
         # VieNeu exposes no un-register; drop it from our advertised set (the
-        # in-engine entry is cleared on next restart).
-        self._custom.pop(voice_id, None)
+        # in-engine entry is cleared on next restart). True if we held it.
+        return self._custom.pop(voice_id, None) is not None
 
     # Options this backend forwards to VieNeu's infer().
     _INFER_OPTIONS = (
