@@ -2,9 +2,9 @@
 
 # all-voice
 
-**An OpenAI-compatible, multi-backend Text-to-Speech API — first backend: VieNeu-TTS (Vietnamese, CPU-first)**
+**API Text-to-Speech tương thích OpenAI, đa backend — backend đầu tiên: VieNeu-TTS (tiếng Việt, ưu tiên CPU)**
 
-English | [Tiếng Việt (kiến trúc & mở rộng)](docs/kien-truc-va-mo-rong.md)
+Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [Triển khai](docs/deployment.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -14,16 +14,16 @@ English | [Tiếng Việt (kiến trúc & mở rộng)](docs/kien-truc-va-mo-ron
 
 </div>
 
-## Overview
+## Tổng quan
 
-`all-voice` is a Text-to-Speech gateway that speaks the **OpenAI Audio API** on the
-outside and plugs in **any TTS engine** on the inside. The core never imports a
-concrete engine — it talks to a single `VoiceBackend` interface through a registry,
-so **adding a new engine is one adapter file, zero core changes**.
+`all-voice` là một cổng (gateway) Text-to-Speech: bên ngoài nói **chuẩn OpenAI Audio
+API**, bên trong cắm **bất kỳ engine TTS nào**. Phần lõi không bao giờ import trực
+tiếp một engine cụ thể — nó chỉ nói chuyện qua một interface `VoiceBackend` duy nhất
+thông qua registry, nên **thêm engine mới = 1 file adapter, không đụng phần lõi**.
 
-The stock `openai` SDK works unmodified. The first backend is
-[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) — Vietnamese, running torch-free
-on ONNX for CPU, with PyTorch loaded only for voice cloning.
+SDK `openai` gốc chạy được ngay, không cần sửa. Backend đầu tiên là
+[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) — tiếng Việt, chạy không cần
+torch trên ONNX cho CPU, chỉ nạp PyTorch khi cần clone giọng.
 
 ```mermaid
 flowchart LR
@@ -32,67 +32,67 @@ flowchart LR
     Router --> Reg["Registry: model → backend"]
     Reg --> BE["VoiceBackend (interface)"]
     BE --> VieNeu[VieNeuBackend]
-    BE -. add new engine .-> Other[XyzBackend]
-    VieNeu --> ONNX["ONNX (presets, fast)"]
-    VieNeu --> Torch["PyTorch (clones)"]
+    BE -. thêm engine mới .-> Other[XyzBackend]
+    VieNeu --> ONNX["ONNX (preset, nhanh)"]
+    VieNeu --> Torch["PyTorch (giọng clone)"]
     VieNeu -->|PCM| Enc["Encoder (PyAV)"]
     Enc -->|"mp3/opus/aac/flac/wav/pcm"| Client
 ```
 
-## ✨ Features
+## ✨ Tính năng
 
 | | |
 |---|---|
-| 🔌 **OpenAI-compatible** | `audio.speech`, custom voices, models — drop-in for the `openai` SDK |
-| 🧩 **Pluggable backends** | New engine = 1 adapter, auto-listed in `/v1/models` & `/v1/voices` |
-| 🎙️ **Voice cloning** | Enrol once from a 3–8s sample, reuse forever by `voice_id` (persisted) |
-| 🎛️ **Tuning knobs** | Style, pauses, sampling — via `extra_body`, VieNeu as the reference |
-| ⚡ **CPU-first** | ONNX presets are torch-free & fast; PyTorch lazy-loaded only for clones |
-| 🔊 **6 formats** | mp3 · opus · aac · flac · wav · pcm (PyAV, no system FFmpeg) |
-| 🩺 **Debuggable** | Stdout + rotating file logs, per-request latency, 500 tracebacks |
+| 🔌 **Tương thích OpenAI** | `audio.speech`, giọng tùy chỉnh, models — cắm thẳng vào SDK `openai` |
+| 🧩 **Backend cắm-rút** | Engine mới = 1 adapter, tự xuất hiện trong `/v1/models` & `/v1/voices` |
+| 🎙️ **Clone giọng** | Enrol một lần từ mẫu 3–8s, tái dùng mãi bằng `voice_id` (lưu trên đĩa) |
+| 🎛️ **Knob tinh chỉnh** | Style, ngắt nghỉ, sampling — qua `extra_body`, VieNeu là chuẩn tham chiếu |
+| ⚡ **Ưu tiên CPU** | Preset ONNX không cần torch & nhanh; PyTorch chỉ nạp lười khi clone |
+| 🔊 **6 định dạng** | mp3 · opus · aac · flac · wav · pcm (PyAV, không cần FFmpeg hệ thống) |
+| 🩺 **Dễ debug** | Log stdout + file xoay vòng, độ trễ từng request, traceback lỗi 500 |
 
-## 🚀 Quick Start
+## 🚀 Bắt đầu nhanh
 
 <details>
-<summary><b>Prerequisites</b></summary>
+<summary><b>Yêu cầu</b></summary>
 
-- **[uv](https://docs.astral.sh/uv/)** — it fetches the pinned Python 3.12 for you.
-- No system FFmpeg needed (PyAV bundles it). ~350 MB free disk for the model.
+- **[uv](https://docs.astral.sh/uv/)** — tự tải sẵn Python 3.12 đã ghim cho bạn.
+- Không cần FFmpeg hệ thống (PyAV đã kèm). Cần ~350 MB đĩa trống cho model.
 
-Install uv (Linux/macOS): `curl -LsSf https://astral.sh/uv/install.sh | sh`
+Cài uv (Linux/macOS): `curl -LsSf https://astral.sh/uv/install.sh | sh`
 </details>
 
 ```bash
-cp .env.example .env               # set API_KEYS
-uv sync --extra clone              # deps + VieNeu + PyTorch (for cloning)
+cp .env.example .env               # đặt API_KEYS
+uv sync --extra clone              # deps + VieNeu + PyTorch (cho clone giọng)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8123
 ```
 
 > [!IMPORTANT]
-> Set a real `API_KEYS` in `.env` before exposing the service — don't ship `dev-key`.
+> Đặt `API_KEYS` thật trong `.env` trước khi mở service ra ngoài — đừng để `dev-key`.
 
 > [!NOTE]
-> The VieNeu model (~313 MB) downloads on the **first** synthesis request, cached in
-> `~/.cache/huggingface/hub` (override with `HF_HOME`).
+> Model VieNeu (~313 MB) tải ở **request synth đầu tiên**, cache tại
+> `~/.cache/huggingface/hub` (đổi bằng `HF_HOME`).
 
-Interactive API docs (auto-generated): **`http://localhost:8123/docs`** (Swagger) ·
+Tài liệu API tương tác (tự sinh): **`http://localhost:8123/docs`** (Swagger) ·
 `/redoc` · `/openapi.json`.
 
 ## 🔌 API Endpoints
 
-All `/v1/*` routes require `Authorization: Bearer <key>`.
+Mọi route `/v1/*` cần header `Authorization: Bearer <key>`.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/v1/audio/speech` | Synthesize speech (OpenAI schema) |
-| `GET`  | `/v1/models` | List registered backends |
-| `GET`  | `/v1/voices` | List preset + cloned voices (all backends) |
-| `POST` | `/v1/audio/voices` | Create a cloned voice (multipart) |
-| `GET` · `DELETE` | `/v1/audio/voices/{id}` | Retrieve / delete a cloned voice |
-| `POST` | `/v1/audio/voice_consents` | Issue a consent id (OpenAI-compat) |
-| `GET`  | `/health` | Liveness (no auth) |
+| Method | Path | Mô tả |
+|--------|------|-------|
+| `POST` | `/v1/audio/speech` | Tổng hợp giọng nói (schema OpenAI) |
+| `GET`  | `/v1/models` | Liệt kê các backend đã đăng ký |
+| `GET`  | `/v1/voices` | Liệt kê giọng preset + giọng clone (mọi backend) |
+| `POST` | `/v1/audio/voices` | Tạo giọng clone (multipart) |
+| `GET` · `DELETE` | `/v1/audio/voices/{id}` | Lấy / xóa một giọng clone |
+| `POST` | `/v1/audio/voice_consents` | Cấp consent id (để tương thích OpenAI) |
+| `GET`  | `/health` | Kiểm tra sống (không cần auth) |
 
-**With the OpenAI SDK (unmodified):**
+**Dùng với SDK OpenAI (không sửa gì):**
 
 ```python
 from openai import OpenAI
@@ -105,85 +105,109 @@ client.audio.speech.create(
 ```
 
 > [!TIP]
-> `model="tts-1"` and OpenAI voice names (`alloy`, …) are accepted too: an unknown
-> model routes to the default backend, an unknown voice to the first preset.
+> `model="tts-1"` và các tên giọng OpenAI (`alloy`, …) cũng được chấp nhận: model lạ
+> sẽ route về backend mặc định, giọng lạ về preset đầu tiên.
 
-## 🎙️ Voice Cloning
+## 🎙️ Clone giọng
 
-Enrolment (`add_voice`) costs tens of seconds, so it's a **one-time** step — you never
-re-upload the sample per request.
+Enrol (`add_voice`) tốn vài chục giây nên là bước **một lần duy nhất** — bạn không
+bao giờ phải tải lại mẫu cho mỗi request.
 
 ```python
-# 1) Enrol once -> get a voice_id (persisted to disk, survives restarts).
+# 1) Enrol một lần -> nhận voice_id (lưu trên đĩa, sống qua restart).
 voice = client.audio.voices.create(name="My Voice", audio_sample=open("ref.wav", "rb"))
 
-# 2) Reuse forever by id.
+# 2) Tái dùng mãi bằng id.
 client.audio.speech.create(model="vieneu", voice=voice.id,
                            input="Xin chào!", response_format="mp3").stream_to_file("out.mp3")
 ```
 
-The server generates a random unique `voice_id` (`voice_…`) — you only set `name`
-(which may repeat freely). Samples live in `data/voices/` (`samples/` + `registry.json`)
-and are re-enrolled at startup.
+Server tự sinh `voice_id` ngẫu nhiên duy nhất (`voice_…`) — bạn chỉ đặt `name`
+(được phép trùng nhau). Mẫu lưu ở `data/voices/` (`samples/` + `registry.json`) và
+được enrol lại lúc khởi động.
 
-## 🎛️ Tuning Knobs
+**Để clone cho chuẩn.** Độ giống phụ thuộc vào mẫu tham chiếu và hai knob lúc enrol
+(cả hai mặc định bật, được lưu lại để restart tái tạo đúng y giọng cũ):
 
-Pass VieNeu params via the SDK's `extra_body` (standard clients are unaffected):
+| Field | Mặc định | Khi nào đổi |
+|-------|----------|-------------|
+| `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch**/thu studio — khử nhiễu ép có thể làm mờ chất giọng. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
+| `use_ref_codes` | `true` | Giữ bật để clone chuẩn nhất (neo prosody/chất giọng bằng reference codes). |
+
+```python
+# Mẫu đã sạch -> tắt denoise để giữ đúng chất giọng (gửi kèm field multipart):
+import httpx
+httpx.post("http://localhost:8123/v1/audio/voices",
+           headers={"Authorization": "Bearer dev-key"},
+           data={"name": "My Voice", "denoise": "false"},
+           files={"audio_sample": open("clean_ref.wav", "rb")})
+```
+
+**Yêu cầu mẫu** (quan trọng ngang các knob): 3–8s, **một người nói**, nền sạch
+(không nhạc/echo), nói rõ và có ngữ điệu. VieNeu tự cắt silence 2 đầu và trộn về
+mono, nhưng **không** tự cắt clip quá dài — clip dài hoặc nhiều giọng sẽ làm loãng
+speaker embedding.
+
+## 🎛️ Knob tinh chỉnh
+
+Truyền tham số VieNeu qua `extra_body` của SDK (client chuẩn không bị ảnh hưởng):
 
 ```python
 client.audio.speech.create(
     model="vieneu", voice="Trúc Ly", input="Ngày xửa ngày xưa...",
-    speed=1.2, extra_body={"style": "doc_truyen", "silence_p": 0.3, "temperature": 0.6},
+    extra_body={"style": "doc_truyen", "silence_p": 0.3, "temperature": 0.6},
 )
 ```
 
 `style` (tu_nhien/tin_tuc/doc_truyen) · `temperature` · `top_k` · `top_p` ·
-`repetition_penalty` · `silence_p` (pause length) · `crossfade_p` · `max_chars`.
-`speed` (0.25–4.0) is applied gateway-side (pitch-preserving), so it works for every
-backend. Emotion cues (`[cười]`) and VI⇄EN code-switching work inline in `input`.
+`repetition_penalty` · `silence_p` (độ dài ngắt nghỉ) · `crossfade_p` · `max_chars`.
+Field `speed` của OpenAI được **chấp nhận để tương thích** nhưng là **no-op** với
+VieNeu (không có điều chỉnh tốc độ gốc; gateway không time-stretch). Dùng `silence_p`
+để chỉnh nhịp đọc. Cue cảm xúc (`[cười]`) và chuyển ngữ Việt⇄Anh chạy inline ngay
+trong `input`.
 
-## 🚢 Deployment
+## 🚢 Triển khai
 
-Self-hosted on Linux/macOS via [`deploy/`](deploy/) scripts:
+Tự host trên Linux/macOS qua các script trong [`deploy/`](deploy/):
 
 ```bash
-bash deploy/setup.sh                   # install uv + locked deps + .env + logs/
-sudo bash deploy/install-service.sh    # run as a systemd service (Linux, background)
+bash deploy/setup.sh                   # cài uv + deps đã khóa + .env + logs/
+sudo bash deploy/install-service.sh    # chạy nền như service systemd (Linux)
 ```
 
-The service auto-restarts on crash and boot — no terminal held. Full guide:
-[docs/deployment.md](docs/deployment.md).
+Service tự khởi động lại khi crash và khi reboot — không giữ terminal. Hướng dẫn đầy
+đủ: [docs/deployment.md](docs/deployment.md).
 
-## 🩺 Logs & Debugging
+## 🩺 Log & Debug
 
-Logs go to **stdout + a rotating file** (`logs/app.log`, 5 MB × 5) — no DB.
+Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng DB.
 
-| Logger | What |
-|--------|------|
-| `all_voice.startup` | device, backends, cloned-voice count |
-| `all_voice.request` | `METHOD path → status (latency ms)` |
-| `all_voice.speech` | per synth: model / voice / format / chars / duration |
-| `all_voice.error` | 500 tracebacks (also returns the OpenAI error envelope) |
+| Logger | Ghi gì |
+|--------|--------|
+| `all_voice.startup` | device, các backend, số giọng clone |
+| `all_voice.request` | `METHOD path → status (độ trễ ms)` |
+| `all_voice.speech` | mỗi lần synth: model / voice / định dạng / số ký tự / thời lượng |
+| `all_voice.error` | traceback lỗi 500 (đồng thời trả về envelope lỗi chuẩn OpenAI) |
 
-`faulthandler` dumps native-crash (segfault) tracebacks to stderr. Under systemd,
-`server.log` captures uvicorn + stderr; `journalctl -u all-voice -f` tails it live.
+`faulthandler` in traceback lỗi native (segfault) ra stderr. Dưới systemd,
+`server.log` bắt cả uvicorn + stderr; `journalctl -u all-voice -f` xem realtime.
 
-## ⚙️ Configuration (`.env`)
+## ⚙️ Cấu hình (`.env`)
 
 `API_KEYS` · `DEVICE` (cpu/cuda/auto) · `DEFAULT_BACKEND` · `MAX_CONCURRENCY` ·
-`VOICES_DIR` · `HOST` · `PORT` (default 8123) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
+`VOICES_DIR` · `HOST` · `PORT` (mặc định 8123) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
 
-## 🧩 Add a Backend
+## 🧩 Thêm một Backend
 
-1. Create `app/backends/<engine>_backend.py` subclassing `VoiceBackend`
+1. Tạo `app/backends/<engine>_backend.py` kế thừa `VoiceBackend`
    (`name`, `list_voices()`, `synthesize()`).
-2. Register it in `app/main._register_backends()`: `registry.register(MyBackend())`.
+2. Đăng ký trong `app/main._register_backends()`: `registry.register(MyBackend())`.
 
-No router/schema/auth/encoder change — it appears in `/v1/models` and `/v1/voices`
-automatically. Details: [docs/kien-truc-va-mo-rong.md](docs/kien-truc-va-mo-rong.md).
+Không phải sửa router/schema/auth/encoder — nó tự xuất hiện trong `/v1/models` và
+`/v1/voices`. Chi tiết: [docs/kien-truc-va-mo-rong.md](docs/kien-truc-va-mo-rong.md).
 
 ## 🧪 Test
 
 ```bash
-uv run pytest -q     # single end-to-end suite: spins up the app, hits every endpoint
+uv run pytest -q     # một bộ test end-to-end: dựng app, gọi mọi endpoint
 ```

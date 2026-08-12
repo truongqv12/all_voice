@@ -132,10 +132,11 @@ serialize bằng một khóa (lock) trong backend.
 | `crossfade_p` | 0.0–1.0 | Nối mượt giữa các đoạn |
 | `max_chars` | 32–512 | Kích thước chunk khi chia câu dài |
 
-**Tốc độ đọc (`speed`, 0.25–4.0):** VieNeu **không có** điều chỉnh tốc độ gốc, nên
-gateway tự xử lý bằng **time-stretch giữ nguyên cao độ** (phase vocoder, librosa)
-sau khi synth. Áp dụng cho **mọi backend** → `speed` của OpenAI luôn hoạt động.
-`speed=1.0` bỏ qua (không xử lý).
+**Tốc độ đọc (`speed`, 0.25–4.0):** field được **giữ để tương thích OpenAI SDK**
+và chuyển xuống backend, nhưng chỉ có tác dụng nếu backend có điều chỉnh tốc độ
+gốc. VieNeu **không có** → `speed` là **no-op** với VieNeu. Gateway **không**
+time-stretch (phase vocoder làm giảm chất lượng giọng). Dùng `silence_p` để chỉnh
+nhịp đọc.
 
 **Không cần knob** (hoạt động sẵn trong `input`):
 - **Ngắt nghỉ theo dấu câu:** viết `,` `.` `…`, xuống dòng → máy tự nghỉ.
@@ -157,18 +158,31 @@ khi cần cho giọng clone → giữ đường nóng preset nhanh.
 
 ```mermaid
 flowchart LR
-    Up["POST /v1/audio/voices<br/>name + audio_sample"] --> Save["VoiceStore lưu mẫu<br/>data/voices/samples/"]
-    Save --> Enrol["engine.add_voice(id, sample)<br/>PyTorch, ~vài chục giây/1 lần"]
-    Enrol --> Reg["registry.json ghi metadata"]
+    Up["POST /v1/audio/voices<br/>name + audio_sample<br/>+ denoise? + use_ref_codes?"] --> Save["VoiceStore lưu mẫu<br/>data/voices/samples/"]
+    Save --> Enrol["engine.add_voice(id, sample,<br/>denoise, use_ref_codes)<br/>PyTorch, ~vài chục giây/1 lần"]
+    Enrol --> Reg["registry.json ghi metadata<br/>(gồm denoise/use_ref_codes)"]
     Reg --> Use["Dùng lại: voice = voice_id<br/>trong /v1/audio/speech"]
     Restart(["Khởi động lại app"]) --> Reload["Nạp lại tất cả giọng clone<br/>từ registry.json"]
     Reload --> Use
 ```
 
 - Mẫu lưu ở `data/voices/samples/`, metadata ở `data/voices/registry.json`.
-- **Sống sót qua restart:** lúc khởi động, mỗi giọng được enrol lại vào engine.
+- **Sống sót qua restart:** lúc khởi động, mỗi giọng được enrol lại vào engine
+  **với đúng `denoise`/`use_ref_codes` đã lưu** → clone tái tạo y hệt.
 - Enrol tốn ~vài chục giây/lần (một lần); synth giọng clone **nhanh hơn thời gian
   thực** (~2×). Xem số đo trong `plans/.../plan.md`.
+
+**Clone cho chuẩn (fidelity):** `speaker_emb` + `ref_codes` (do `add_voice` trích)
+quyết định chất giọng. Hai knob (đều mặc định bật, persist theo giọng):
+
+| Field | Mặc định | Khi nào đổi |
+|-------|----------|-------------|
+| `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch** (thu studio) — khử nhiễu ép có thể làm mờ timbre. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
+| `use_ref_codes` | `true` | Giữ bật để clone chuẩn nhất (neo prosody/timbre). |
+
+Mẫu tốt cũng quan trọng ngang knob: **3–8s, một người**, nền sạch (không nhạc/echo),
+nói rõ đủ ngữ điệu. VieNeu tự trim silence 2 đầu + mono-hoá, **không** tự cắt clip
+quá dài → clip dài/nhiều giọng làm loãng speaker embedding.
 
 ---
 
@@ -209,7 +223,8 @@ Xong. Tự động có mặt trong `GET /v1/models` và `GET /v1/voices`; client
 `model="piper"`. **Không sửa** router/schema/auth/encoder.
 
 - Muốn hỗ trợ clone: đặt `supports_cloning = True` và cài đặt thêm
-  `register_voice(voice_id, name, sample_path)` + `remove_voice(voice_id)`.
+  `register_voice(voice_id, name, sample_path, *, denoise=True, use_ref_codes=True)`
+  + `remove_voice(voice_id)`. Backend bỏ qua knob nào nó không có.
 - Encoder tự lo mọi định dạng — adapter **chỉ cần trả PCM float32 + sample_rate**
   (sample_rate bao nhiêu cũng được, encoder xử lý; riêng `opus` cần 48/24/16/12/8kHz).
 
