@@ -8,7 +8,6 @@ import anyio
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
-from ..audio.effects import apply_speed
 from ..audio.encoder import content_type_for, encode
 from ..auth import require_api_key
 from ..backends.registry import registry
@@ -61,9 +60,10 @@ async def create_speech(req: SpeechRequest, _key: str = Depends(require_api_key)
         result = await anyio.to_thread.run_sync(
             backend.synthesize, req.input, voice, req.speed, options
         )
-    # `speed` is applied gateway-side (pitch-preserving) so it works for every
-    # backend, including VieNeu which has no native speed control.
-    pcm = await anyio.to_thread.run_sync(apply_speed, result.pcm, req.speed)
+    # `speed` is forwarded to the backend; a backend honours it only if it has
+    # native speed control. VieNeu does not, so speed is a no-op there — the
+    # gateway no longer time-stretches (that hurt speech quality).
+    pcm = result.pcm
     audio = await anyio.to_thread.run_sync(encode, pcm, result.sample_rate, req.response_format)
 
     elapsed_ms = (time.perf_counter() - start) * 1000

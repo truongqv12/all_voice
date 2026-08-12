@@ -152,20 +152,17 @@ def test_openai_alias():
     assert len(r.content) > 0
 
 
-def _wav_seconds(b: bytes) -> float:
-    return max(len(b) - 44, 0) / 2 / 48000  # 16-bit mono 48kHz
-
-
-def test_speed_changes_duration():
+def test_speed_accepted_but_noop():
+    # `speed` stays in the schema for OpenAI-SDK compatibility, but VieNeu has no
+    # native speed control and the gateway no longer time-stretches, so any
+    # in-range value is simply accepted and returns valid audio.
     text = "Đây là câu kiểm tra tốc độ đọc của hệ thống."
-    def synth(speed):
+    for speed in (0.5, 1.0, 2.0):
         r = client.post("/v1/audio/speech", headers=AUTH,
                         json={"model": "vieneu", "input": text, "voice": "Trúc Ly",
                               "response_format": "wav", "speed": speed})
         assert r.status_code == 200, r.text
-        return _wav_seconds(r.content)
-    base, fast = synth(1.0), synth(2.0)
-    assert fast < base * 0.7  # ~2x faster -> markedly shorter
+        assert len(r.content) > 44  # more than a bare WAV header
 
 
 def test_tuning_options():

@@ -37,10 +37,12 @@ class SpeechRequest(BaseModel):
     response_format: ResponseFormat = Field(
         default="mp3", description="Output container: mp3/opus/aac/flac/wav/pcm.",
     )
-    # Applied gateway-side via pitch-preserving time-stretch (works for all backends).
+    # Accepted for OpenAI compatibility. Forwarded to the backend but only
+    # honoured if that backend has native speed control; VieNeu does not, so it
+    # is a no-op there (the gateway no longer time-stretches — it degraded speech).
     speed: float = Field(
         default=1.0, ge=0.25, le=4.0,
-        description="Playback speed 0.25–4.0. Applied gateway-side (pitch-preserving time-stretch); `1.0` = no processing.",
+        description="Playback speed 0.25–4.0 (OpenAI-compatible). Honoured only by backends with native speed control; VieNeu ignores it.",
     )
     # Accepted for OpenAI compatibility; not applied by every backend yet.
     instructions: str | None = Field(
