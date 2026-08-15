@@ -51,8 +51,8 @@ class VoiceBackend(ABC):
     ) -> AudioResult:
         """Render `text` with `voice` into PCM.
 
-        `options` carries backend tuning knobs (style, temperature, silence_p,
-        …). A backend maps the keys it understands and ignores the rest."""
+        `options` carries backend tuning knobs (currently just `style`). A
+        backend maps the keys it understands and ignores the rest."""
 
     def register_voice(
         self,

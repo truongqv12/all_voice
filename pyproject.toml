@@ -18,14 +18,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Voice cloning needs VieNeu's PyTorch engine (ONNX cannot enrol clones).
-# CPU wheels install by default on Windows/Linux. For CUDA, install torch from
-# the PyTorch index, then set DEVICE=cuda.
+# Voice cloning needs PyTorch. Preset synthesis runs torch-free on VieNeu's ONNX
+# engine, but enrolling a clone runs VieNeu's speaker encoder, which uses torch
+# for feature preprocessing even on the ONNX engine. This extra also enables the
+# GPU/PyTorch engine — install it and set DEVICE=cuda (install torch from the
+# PyTorch index for the right CUDA build).
 clone = [
     "torch>=2.8.0",
     "torchaudio>=2.8.0",
     "transformers==4.57.6",
-    "neucodec>=0.0.4",
 ]
 
 [dependency-groups]

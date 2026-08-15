@@ -15,9 +15,9 @@ class SpeechRequest(BaseModel):
 
     Unknown `model` falls back to the default backend and an unknown/`alloy`-style
     `voice` falls back to the backend's first preset, so the stock OpenAI SDK works
-    unmodified. The tuning knobs below are an OpenAI extension: pass them via the
-    SDK's `extra_body`. VieNeu is the reference for their names/semantics; other
-    backends map or ignore them.
+    unmodified. `style` (the one tuning knob kept) is an OpenAI extension: pass it
+    via the SDK's `extra_body`. All sampling knobs (temperature/top_k/top_p/…) are
+    intentionally not exposed — VieNeu manages them internally.
     """
 
     model: str = Field(
@@ -49,28 +49,10 @@ class SpeechRequest(BaseModel):
         default=None, description="Accepted for OpenAI compatibility; not applied by every backend yet.",
     )
 
-    # --- Backend tuning knobs (OpenAI extension; pass via `extra_body`). ---
-    # VieNeu is the reference: names/semantics follow it. Other backends map
-    # these to their own params or ignore unknown ones. None => backend default.
+    # --- Backend tuning knob (OpenAI extension; pass via `extra_body`). ---
+    # Only `style` is exposed; sampling params are left to VieNeu's own defaults.
     style: Literal["tu_nhien", "tin_tuc", "doc_truyen"] | None = Field(
         default=None, description="Reading style: tu_nhien (natural) / tin_tuc (news) / doc_truyen (storytelling).",
-    )
-    temperature: float | None = Field(
-        default=None, ge=0.1, le=2.0, description="Sampling temperature; higher = more expressive, lower = more stable.",
-    )
-    top_k: int | None = Field(default=None, ge=1, le=100, description="Top-k sampling.")
-    top_p: float | None = Field(default=None, ge=0.0, le=1.0, description="Nucleus (top-p) sampling.")
-    repetition_penalty: float | None = Field(
-        default=None, ge=1.0, le=2.0, description="Penalty against repeated sounds.",
-    )
-    silence_p: float | None = Field(
-        default=None, ge=0.0, le=2.0, description="Pause-length multiplier between phrases.",
-    )
-    crossfade_p: float | None = Field(
-        default=None, ge=0.0, le=1.0, description="Cross-fade smoothing when stitching chunks.",
-    )
-    max_chars: int | None = Field(
-        default=None, ge=32, le=512, description="Chunk size when splitting long input.",
     )
 
     model_config = {
@@ -83,17 +65,13 @@ class SpeechRequest(BaseModel):
                     "response_format": "mp3",
                     "speed": 1.0,
                     "style": "doc_truyen",
-                    "silence_p": 0.3,
                 }
             ]
         }
     }
 
     #: Keys forwarded to the backend as tuning options.
-    _OPTION_KEYS = (
-        "style", "temperature", "top_k", "top_p", "repetition_penalty",
-        "silence_p", "crossfade_p", "max_chars",
-    )
+    _OPTION_KEYS = ("style",)
 
     def backend_options(self) -> dict[str, Any]:
         """Non-null tuning options to hand to the backend."""

@@ -22,8 +22,10 @@ tiếp một engine cụ thể — nó chỉ nói chuyện qua một interface `
 thông qua registry, nên **thêm engine mới = 1 file adapter, không đụng phần lõi**.
 
 SDK `openai` gốc chạy được ngay, không cần sửa. Backend đầu tiên là
-[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) — tiếng Việt, chạy không cần
-torch trên ONNX cho CPU, chỉ nạp PyTorch khi cần clone giọng.
+[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) — tiếng Việt. Một engine
+duy nhất lo cả preset lẫn clone: trên CPU là engine ONNX (đọc preset **không cần
+torch**); **clone giọng cần thêm PyTorch** (speaker encoder của VieNeu dùng torch
+để tiền xử lý, kể cả trên engine ONNX).
 
 ```mermaid
 flowchart LR
@@ -33,8 +35,7 @@ flowchart LR
     Reg --> BE["VoiceBackend (interface)"]
     BE --> VieNeu[VieNeuBackend]
     BE -. thêm engine mới .-> Other[XyzBackend]
-    VieNeu --> ONNX["ONNX (preset, nhanh)"]
-    VieNeu --> Torch["PyTorch (giọng clone)"]
+    VieNeu --> Engine["1 engine · CPU=ONNX<br/>preset torch-free · clone cần torch"]
     VieNeu -->|PCM| Enc["Encoder (PyAV)"]
     Enc -->|"mp3/opus/aac/flac/wav/pcm"| Client
 ```
@@ -46,8 +47,8 @@ flowchart LR
 | 🔌 **Tương thích OpenAI** | `audio.speech`, giọng tùy chỉnh, models — cắm thẳng vào SDK `openai` |
 | 🧩 **Backend cắm-rút** | Engine mới = 1 adapter, tự xuất hiện trong `/v1/models` & `/v1/voices` |
 | 🎙️ **Clone giọng** | Enrol một lần từ mẫu 3–8s, tái dùng mãi bằng `voice_id` (lưu trên đĩa) |
-| 🎛️ **Knob tinh chỉnh** | Style, ngắt nghỉ, sampling — qua `extra_body`, VieNeu là chuẩn tham chiếu |
-| ⚡ **Ưu tiên CPU** | Preset ONNX không cần torch & nhanh; PyTorch chỉ nạp lười khi clone |
+| 🎛️ **Knob tinh chỉnh** | Chỉ `style` (kiểu đọc) — qua `extra_body`; sampling để VieNeu tự lo |
+| ⚡ **Ưu tiên CPU** | Preset ONNX không cần torch & nhanh; clone giọng cần thêm PyTorch |
 | 🔊 **6 định dạng** | mp3 · opus · aac · flac · wav · pcm (PyAV, không cần FFmpeg hệ thống) |
 | 🩺 **Dễ debug** | Log stdout + file xoay vòng, độ trễ từng request, traceback lỗi 500 |
 
@@ -126,13 +127,15 @@ Server tự sinh `voice_id` ngẫu nhiên duy nhất (`voice_…`) — bạn ch�
 (được phép trùng nhau). Mẫu lưu ở `data/voices/` (`samples/` + `registry.json`) và
 được enrol lại lúc khởi động.
 
-**Để clone cho chuẩn.** Độ giống phụ thuộc vào mẫu tham chiếu và hai knob lúc enrol
-(cả hai mặc định bật, được lưu lại để restart tái tạo đúng y giọng cũ):
+**Để clone cho chuẩn.** Độ giống phụ thuộc vào mẫu tham chiếu và knob `denoise`
+lúc enrol (mặc định bật, được lưu lại để restart tái tạo đúng y giọng cũ):
 
 | Field | Mặc định | Khi nào đổi |
 |-------|----------|-------------|
 | `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch**/thu studio — khử nhiễu ép có thể làm mờ chất giọng. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
-| `use_ref_codes` | `true` | Giữ bật để clone chuẩn nhất (neo prosody/chất giọng bằng reference codes). |
+
+> `use_ref_codes` không còn là tham số đầu vào; nó luôn bật (`true`) bên trong để
+> clone chuẩn nhất.
 
 ```python
 # Mẫu đã sạch -> tắt denoise để giữ đúng chất giọng (gửi kèm field multipart):
@@ -150,21 +153,22 @@ speaker embedding.
 
 ## 🎛️ Knob tinh chỉnh
 
-Truyền tham số VieNeu qua `extra_body` của SDK (client chuẩn không bị ảnh hưởng):
+Chỉ còn **một** knob duy nhất là `style`, truyền qua `extra_body` của SDK (client
+chuẩn không bị ảnh hưởng):
 
 ```python
 client.audio.speech.create(
     model="vieneu", voice="Trúc Ly", input="Ngày xửa ngày xưa...",
-    extra_body={"style": "doc_truyen", "silence_p": 0.3, "temperature": 0.6},
+    extra_body={"style": "doc_truyen"},
 )
 ```
 
-`style` (tu_nhien/tin_tuc/doc_truyen) · `temperature` · `top_k` · `top_p` ·
-`repetition_penalty` · `silence_p` (độ dài ngắt nghỉ) · `crossfade_p` · `max_chars`.
-Field `speed` của OpenAI được **chấp nhận để tương thích** nhưng là **no-op** với
-VieNeu (không có điều chỉnh tốc độ gốc; gateway không time-stretch). Dùng `silence_p`
-để chỉnh nhịp đọc. Cue cảm xúc (`[cười]`) và chuyển ngữ Việt⇄Anh chạy inline ngay
-trong `input`.
+`style` (tu_nhien/tin_tuc/doc_truyen) — kiểu đọc: tự nhiên / bản tin / kể chuyện.
+Các tham số sampling (`temperature`, `top_k`, `top_p`, `repetition_penalty`,
+`silence_p`, `crossfade_p`, `max_chars`) **không còn được phơi ra** — VieNeu tự lo
+theo mặc định nội bộ. Field `speed` của OpenAI vẫn **được chấp nhận để tương thích**
+nhưng là **no-op** với VieNeu. Cue cảm xúc (`[cười]`) và chuyển ngữ Việt⇄Anh chạy
+inline ngay trong `input`.
 
 ## 🚢 Triển khai
 

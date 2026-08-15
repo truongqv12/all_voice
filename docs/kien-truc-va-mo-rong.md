@@ -41,8 +41,7 @@ flowchart TD
     Backend --> VieNeu["VieNeuBackend (adapter)"]
     Backend -. mở rộng .-> Other["XyzBackend (adapter mới)"]
 
-    VieNeu --> ONNX["Engine ONNX (preset, nhanh)"]
-    VieNeu --> Torch["Engine PyTorch (giọng clone)"]
+    VieNeu --> Engine["1 engine dùng chung · CPU=ONNX<br/>preset torch-free · clone cần torch"]
 
     VieNeu -->|"PCM float32 48kHz"| Encoder
     Encoder -->|"mp3/opus/aac/flac/wav/pcm"| Client
@@ -73,7 +72,7 @@ sequenceDiagram
     R->>B: resolve_voice(voice)
     Note over B: voice lạ / "alloy" -> preset đầu tiên
     R->>B: synthesize(text, voice, speed, options)
-    Note over B: giọng clone -> engine PyTorch<br/>preset -> engine ONNX (nhanh)
+    Note over B: 1 engine dùng chung (CPU=ONNX)<br/>cho cả preset lẫn giọng clone
     B-->>R: PCM float32 48kHz
     R->>E: encode(pcm, response_format)
     E-->>C: bytes audio + Content-Type đúng
@@ -95,7 +94,7 @@ serialize bằng một khóa (lock) trong backend.
 | `app/schemas.py` | Request/response (khớp OpenAI) + các knob tinh chỉnh |
 | `app/backends/base.py` | **Interface `VoiceBackend`** + `Voice`, `AudioResult` |
 | `app/backends/registry.py` | Bảng `model -> backend`, chọn backend mặc định |
-| `app/backends/vieneu_backend.py` | Adapter VieNeu (ONNX preset + PyTorch clone) |
+| `app/backends/vieneu_backend.py` | Adapter VieNeu (1 engine chung; CPU=ONNX, clone cần torch) |
 | `app/audio/encoder.py` | PCM → mp3/opus/aac/flac/wav/pcm (PyAV + stdlib) |
 | `app/voice_store.py` | Lưu mẫu giọng clone + registry.json (đĩa) |
 | `app/routers/speech.py` | `POST /v1/audio/speech` |
@@ -119,28 +118,23 @@ serialize bằng một khóa (lock) trong backend.
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 
 **Knob tinh chỉnh** (gửi qua `extra_body` của OpenAI SDK; client thường không bị
-ảnh hưởng). **VieNeu là chuẩn** — tên và ý nghĩa theo VieNeu:
+ảnh hưởng). Chỉ còn **một** knob được phơi ra:
 
 | Knob | Miền giá trị | Ý nghĩa |
 |---|---|---|
 | `style` | tu_nhien / tin_tuc / doc_truyen | Kiểu đọc: tự nhiên / bản tin / kể chuyện |
-| `temperature` | 0.1–2.0 | Cao = biểu cảm hơn; thấp = ổn định |
-| `top_k` | 1–100 | Nucleus sampling |
-| `top_p` | 0.0–1.0 | Nucleus sampling |
-| `repetition_penalty` | 1.0–2.0 | Giảm lặp âm |
-| `silence_p` | 0.0–2.0 | **Hệ số ngắt nghỉ** giữa các cụm |
-| `crossfade_p` | 0.0–1.0 | Nối mượt giữa các đoạn |
-| `max_chars` | 32–512 | Kích thước chunk khi chia câu dài |
+
+Các tham số sampling (`temperature`, `top_k`, `top_p`, `repetition_penalty`,
+`silence_p`, `crossfade_p`, `max_chars`) **không còn là tham số đầu vào** — VieNeu
+tự lo theo mặc định nội bộ (giống VieNeu Studio).
 
 **Tốc độ đọc (`speed`, 0.25–4.0):** field được **giữ để tương thích OpenAI SDK**
 và chuyển xuống backend, nhưng chỉ có tác dụng nếu backend có điều chỉnh tốc độ
 gốc. VieNeu **không có** → `speed` là **no-op** với VieNeu. Gateway **không**
-time-stretch (phase vocoder làm giảm chất lượng giọng). Dùng `silence_p` để chỉnh
-nhịp đọc.
+time-stretch (phase vocoder làm giảm chất lượng giọng).
 
 **Không cần knob** (hoạt động sẵn trong `input`):
 - **Ngắt nghỉ theo dấu câu:** viết `,` `.` `…`, xuống dòng → máy tự nghỉ.
-  `silence_p` chỉ là hệ số nhân cho độ dài nghỉ đó.
 - **Cảm xúc / phi ngôn ngữ:** nhúng `[cười]`, `[thở dài]`, `[hắng giọng]` vào text.
 - **Song ngữ Việt–Anh:** tự động code-switch (không có tham số chọn ngôn ngữ).
 
@@ -152,15 +146,19 @@ nhịp đọc.
 
 ## 6. Voice cloning — cách hoạt động & lưu trữ
 
-VieNeu **clone bắt buộc dùng engine PyTorch** (ONNX không clone được — đã kiểm
-chứng). Nên trên CPU dùng **2 engine**: ONNX cho preset (nhanh), PyTorch chỉ nạp
-khi cần cho giọng clone → giữ đường nóng preset nhanh.
+**Clone cần PyTorch** — nhưng **không phải vì ONNX không clone được**. Một engine
+ONNX **vẫn enrol clone được**; điểm mấu chốt là bước trích `speaker_emb` chạy qua
+`OnnxSpeakerEncoder`, mà file này `import torch` ở top-level (dùng torch để tiền
+xử lý fbank/tensor) — vì model v3-Turbo bật `use_speaker_embedding=True`. Đã kiểm
+chứng thực nghiệm (chặn `torch`): **preset ONNX chạy được, `add_voice` thì fail**.
+Do đó dùng **1 engine dùng chung** (CPU=ONNX): preset không cần torch, clone cần
+thêm torch → gate bằng `supports_cloning = _torch_available()`.
 
 ```mermaid
 flowchart LR
-    Up["POST /v1/audio/voices<br/>name + audio_sample<br/>+ denoise? + use_ref_codes?"] --> Save["VoiceStore lưu mẫu<br/>data/voices/samples/"]
-    Save --> Enrol["engine.add_voice(id, sample,<br/>denoise, use_ref_codes)<br/>PyTorch, ~vài chục giây/1 lần"]
-    Enrol --> Reg["registry.json ghi metadata<br/>(gồm denoise/use_ref_codes)"]
+    Up["POST /v1/audio/voices<br/>name + audio_sample<br/>+ denoise?"] --> Save["VoiceStore lưu mẫu<br/>data/voices/samples/"]
+    Save --> Enrol["engine.add_voice(id, sample,<br/>denoise, use_ref_codes=True)<br/>cần torch (speaker encoder), ~vài chục giây/1 lần"]
+    Enrol --> Reg["registry.json ghi metadata<br/>(gồm denoise)"]
     Reg --> Use["Dùng lại: voice = voice_id<br/>trong /v1/audio/speech"]
     Restart(["Khởi động lại app"]) --> Reload["Nạp lại tất cả giọng clone<br/>từ registry.json"]
     Reload --> Use
@@ -168,17 +166,19 @@ flowchart LR
 
 - Mẫu lưu ở `data/voices/samples/`, metadata ở `data/voices/registry.json`.
 - **Sống sót qua restart:** lúc khởi động, mỗi giọng được enrol lại vào engine
-  **với đúng `denoise`/`use_ref_codes` đã lưu** → clone tái tạo y hệt.
+  **với đúng `denoise` đã lưu** → clone tái tạo y hệt.
 - Enrol tốn ~vài chục giây/lần (một lần); synth giọng clone **nhanh hơn thời gian
   thực** (~2×). Xem số đo trong `plans/.../plan.md`.
 
 **Clone cho chuẩn (fidelity):** `speaker_emb` + `ref_codes` (do `add_voice` trích)
-quyết định chất giọng. Hai knob (đều mặc định bật, persist theo giọng):
+quyết định chất giọng. Chỉ còn **một** knob đầu vào là `denoise` (persist theo giọng):
 
 | Field | Mặc định | Khi nào đổi |
 |-------|----------|-------------|
 | `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch** (thu studio) — khử nhiễu ép có thể làm mờ timbre. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
-| `use_ref_codes` | `true` | Giữ bật để clone chuẩn nhất (neo prosody/timbre). |
+
+> `use_ref_codes` luôn bật (`true`) bên trong (không còn là tham số đầu vào) để
+> neo prosody/timbre — clone chuẩn nhất.
 
 Mẫu tốt cũng quan trọng ngang knob: **3–8s, một người**, nền sạch (không nhạc/echo),
 nói rõ đủ ngữ điệu. VieNeu tự trim silence 2 đầu + mono-hoá, **không** tự cắt clip
@@ -207,7 +207,7 @@ class PiperBackend(VoiceBackend):
     def synthesize(self, text, voice, speed=1.0, options=None) -> AudioResult:
         options = options or {}
         # Map knob chuẩn (VieNeu) sang tham số của Piper, bỏ qua cái không có:
-        # vd: style -> preset riêng của Piper; silence_p -> Piper không có -> lờ đi.
+        # vd: style -> preset riêng của Piper; knob nào Piper không có -> lờ đi.
         pcm = my_piper.tts(text)                 # -> np.float32 [-1, 1], mono
         return AudioResult(pcm=np.asarray(pcm, np.float32).reshape(-1), sample_rate=22050)
 ```
@@ -257,11 +257,11 @@ khi chạy; model sẽ nằm trong `<HF_HOME>/hub/`. Mẫu giọng **clone** th�
 
 ## 9. CPU / GPU
 
-- `DEVICE=cpu` (mặc định): preset chạy ONNX (torch-free, nhanh nhất trên CPU);
-  giọng clone chạy PyTorch (nạp lazy khi cần).
-- `DEVICE=cuda` / `auto`: một engine PyTorch lo tất cả (nhanh trên GPU, có batch).
-  Cần cài torch bản CUDA từ index của PyTorch, rồi đặt `DEVICE=cuda`.
-- Cài bộ clone (PyTorch CPU/GPU): `uv sync --extra clone`.
+- `DEVICE=cpu` (mặc định): 1 engine ONNX lo cả preset lẫn clone. Preset đọc
+  torch-free; **enrol clone cần torch** (speaker encoder) → cài `--extra clone`.
+- `DEVICE=cuda`: một engine PyTorch lo tất cả (nhanh trên GPU, có batch). Cần cài
+  torch bản CUDA từ index của PyTorch, rồi đặt `DEVICE=cuda`.
+- Cài bộ clone/GPU (PyTorch): `uv sync --extra clone`.
 
 ---
 

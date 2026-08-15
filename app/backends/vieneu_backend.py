@@ -1,12 +1,14 @@
 """VieNeu-TTS adapter (https://github.com/pnnbao97/VieNeu-TTS).
 
-Engine strategy (VieNeu picks an engine at construction, and cloning is only
-available on the PyTorch engine):
+Engine strategy — one VieNeu engine serves both preset synthesis and voice
+cloning:
 
-- CPU (default): preset synthesis runs on the fast, torch-free ONNX engine.
-  Cloned voices need PyTorch, so a second engine is lazily created only when
-  cloning is used. This keeps the common preset path fast (priority: perf).
-- CUDA/auto: a single PyTorch engine serves everything (fast on GPU).
+- CPU (default): the ONNX engine. Preset synthesis is fully torch-free. Cloning
+  is available only when PyTorch is installed — enrolling a clone runs VieNeu's
+  speaker encoder, which uses torch for feature preprocessing even on the ONNX
+  engine (the v3-Turbo model ships with speaker embeddings enabled).
+- CUDA: a single PyTorch engine serves everything (fast on GPU); install the
+  `clone` extra (torch) and set DEVICE=cuda.
 
 VieNeu is not thread-safe, so all synthesis is serialised behind one lock; the
 router already caps overall concurrency."""
@@ -30,13 +32,13 @@ class VieNeuBackend(VoiceBackend):
 
     def __init__(self, device: str = "cpu") -> None:
         self._device = device
-        self._onnx_engine = None
-        self._torch_engine = None
+        self._engine = None
         self._lock = threading.Lock()
         self._presets_cache: list[Voice] | None = None
         # Enrolled cloned voices: voice_id -> display name.
         self._custom: dict[str, str] = {}
-        # Cloning is only possible when the PyTorch stack is installed.
+        # Preset synth is torch-free (ONNX), but enrolling a clone runs VieNeu's
+        # speaker encoder, which needs torch — so gate cloning on PyTorch.
         self.supports_cloning = _torch_available()
 
     @staticmethod
@@ -44,31 +46,21 @@ class VieNeuBackend(VoiceBackend):
         """True if the `vieneu` package is importable (weights load on demand)."""
         return importlib.util.find_spec("vieneu") is not None
 
-    def _onnx(self):
-        if self._onnx_engine is None:
+    def _get_engine(self):
+        # One engine for presets + clones so enrolled voices resolve in infer().
+        # CPU -> torch-free ONNX; CUDA -> PyTorch.
+        if self._engine is None:
             from vieneu import Vieneu
 
-            self._onnx_engine = Vieneu(backend="onnx")  # torch-free, fastest on CPU
-        return self._onnx_engine
-
-    def _torch(self):
-        if self._torch_engine is None:
-            if not _torch_available():
-                raise RuntimeError(
-                    "Voice cloning requires PyTorch. Install it with `uv sync --extra clone`."
-                )
-            from vieneu import Vieneu
-
-            self._torch_engine = Vieneu()  # auto: CUDA if present, else CPU PyTorch
-        return self._torch_engine
-
-    def _preset_engine(self):
-        # GPU: use the PyTorch engine for presets too; CPU: fast ONNX.
-        return self._onnx() if self._device == "cpu" else self._torch()
+            if self._device == "cpu":
+                self._engine = Vieneu(backend="onnx")  # torch-free, fastest on CPU
+            else:
+                self._engine = Vieneu(device=self._device)  # CUDA -> PyTorch
+        return self._engine
 
     def _presets(self) -> list[Voice]:
         if self._presets_cache is None:
-            engine = self._preset_engine()
+            engine = self._get_engine()
             voices: list[Voice] = []
             # VieNeu returns (display_label, voice_id) tuples; the id is what
             # infer() expects. Fall back to str() for any non-tuple entry.
@@ -97,7 +89,7 @@ class VieNeuBackend(VoiceBackend):
         denoise: bool = True,
         use_ref_codes: bool = True,
     ) -> None:
-        engine = self._torch()  # cloning requires the PyTorch engine
+        engine = self._get_engine()  # same engine as presets; cloning needs torch
         with self._lock:
             # Enrol the clone under our id so infer(voice=voice_id) resolves it.
             # denoise/use_ref_codes drive the speaker embedding + reference codes
@@ -112,19 +104,17 @@ class VieNeuBackend(VoiceBackend):
         # in-engine entry is cleared on next restart). True if we held it.
         return self._custom.pop(voice_id, None) is not None
 
-    # Options this backend forwards to VieNeu's infer().
-    _INFER_OPTIONS = (
-        "style", "temperature", "top_k", "top_p", "repetition_penalty",
-        "silence_p", "crossfade_p", "max_chars",
-    )
+    # Options this backend forwards to VieNeu's infer(). Only `style` is exposed;
+    # sampling params are left to VieNeu's internal defaults.
+    _INFER_OPTIONS = ("style",)
 
     def synthesize(
         self, text: str, voice: str, speed: float = 1.0, options: dict | None = None
     ) -> AudioResult:
         options = options or {}
         kwargs = {k: options[k] for k in self._INFER_OPTIONS if k in options}
-        # Cloned voices live on the PyTorch engine; presets on the preset engine.
-        engine = self._torch() if voice in self._custom else self._preset_engine()
+        # One engine holds both presets and enrolled clones.
+        engine = self._get_engine()
         with self._lock:
             audio = engine.infer(text, voice=voice, **kwargs)
         pcm = np.asarray(audio, dtype=np.float32).reshape(-1)

@@ -57,10 +57,6 @@ async def create_voice(
         default=True,
         description="Denoise the reference. Leave on for noisy clips; turn OFF for already-clean samples to preserve the original timbre (better clone fidelity).",
     ),
-    use_ref_codes: bool = Form(
-        default=True,
-        description="Anchor prosody/timbre with reference codes. Keep on for the most accurate clone.",
-    ),
     _key: str = Depends(require_api_key),
 ) -> CustomVoice:
     sample = await audio_sample.read()
@@ -71,9 +67,11 @@ async def create_voice(
 
     backend = _cloning_backend()
     suffix = os.path.splitext(audio_sample.filename or "")[1] or ".wav"
+    # use_ref_codes is no longer a user knob; it stays on (True) internally for
+    # best clone fidelity via the VoiceRecord default.
     record = voice_store.create(
         name=name, sample=sample, suffix=suffix, backend=backend.name,
-        denoise=denoise, use_ref_codes=use_ref_codes,
+        denoise=denoise,
     )
     try:
         backend.register_voice(

@@ -166,20 +166,19 @@ def test_speed_accepted_but_noop():
 
 
 def test_tuning_options():
-    # Valid knobs (VieNeu style + pause scale + sampling) are accepted.
+    # `style` is the only exposed knob; it is accepted.
     ok = client.post(
         "/v1/audio/speech",
         headers=AUTH,
         json={
             "model": "vieneu", "input": "Kể chuyện nhé.", "voice": "Trúc Ly",
             "response_format": "wav", "style": "doc_truyen",
-            "silence_p": 0.3, "temperature": 0.6, "max_chars": 200,
         },
     )
     assert ok.status_code == 200, ok.text
     assert len(ok.content) > 0
 
-    # Out-of-range / invalid knobs are rejected with 400.
+    # An invalid style value is rejected with 400.
     bad = client.post(
         "/v1/audio/speech",
         headers=AUTH,

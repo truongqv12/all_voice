@@ -53,8 +53,8 @@ OpenAI-compatible, multi-backend Text-to-Speech gateway (first backend: **VieNeu
 (e.g. `tts-1`) routes to the default backend and an unknown/`alloy`-style `voice`
 falls back to the first preset.
 
-**Tuning knobs** — `style`, `temperature`, `silence_p`, … are an OpenAI extension;
-pass them via the SDK's `extra_body`. VieNeu is the reference for their semantics.
+**Tuning knob** — `style` (the only one exposed) is an OpenAI extension; pass it
+via the SDK's `extra_body`. Sampling params are left to VieNeu's internal defaults.
 
 Errors use the OpenAI envelope: `{"error": {"message", "type", "code"}}`.
 """.strip()
