@@ -123,26 +123,25 @@ client.audio.speech.create(model="vieneu", voice=voice.id,
                            input="Xin chào!", response_format="mp3").stream_to_file("out.mp3")
 ```
 
-Server tự sinh `voice_id` ngẫu nhiên duy nhất (`voice_…`) — bạn chỉ đặt `name`
-(được phép trùng nhau). Mẫu lưu ở `data/voices/` (`samples/` + `registry.json`) và
-được enrol lại lúc khởi động.
+Server mặc định tự sinh `voice_id` ngẫu nhiên duy nhất (`voice_…`) nếu không truyền `id`. Bạn cũng có thể **truyền `id` cố định** (ví dụ `id="voice_mc_nam"`) để khi cần cập nhật/ghi đè file mẫu mới thì ID không bị thay đổi. Mẫu lưu ở `data/voices/` (`samples/` + `registry.json`) và được enrol lại lúc khởi động.
 
 **Để clone cho chuẩn.** Độ giống phụ thuộc vào mẫu tham chiếu và knob `denoise`
 lúc enrol (mặc định bật, được lưu lại để restart tái tạo đúng y giọng cũ):
 
-| Field | Mặc định | Khi nào đổi |
-|-------|----------|-------------|
+| Field | Mặc định | Khi nào đổi / Ý nghĩa |
+|-------|----------|-----------------------|
+| `id` | `None` (auto) | **(Tùy chọn)** ID tùy chỉnh cố định (vd `voice_mc_nam`). Nếu trùng ID cũ, hệ thống sẽ ghi đè và nạp lại weights mới. |
 | `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch**/thu studio — khử nhiễu ép có thể làm mờ chất giọng. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
 
 > `use_ref_codes` không còn là tham số đầu vào; nó luôn bật (`true`) bên trong để
 > clone chuẩn nhất.
 
 ```python
-# Mẫu đã sạch -> tắt denoise để giữ đúng chất giọng (gửi kèm field multipart):
+# Mẫu gửi kèm ID cố định và tắt denoise (nếu mẫu đã sạch):
 import httpx
 httpx.post("http://localhost:8123/v1/audio/voices",
            headers={"Authorization": "Bearer dev-key"},
-           data={"name": "My Voice", "denoise": "false"},
+           data={"name": "MC Nam", "id": "voice_mc_nam", "denoise": "false"},
            files={"audio_sample": open("clean_ref.wav", "rb")})
 ```
 

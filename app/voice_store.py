@@ -56,9 +56,18 @@ class VoiceStore:
         backend: str,
         denoise: bool = True,
         use_ref_codes: bool = True,
+        voice_id: str | None = None,
     ) -> VoiceRecord:
-        voice_id = "voice_" + secrets.token_hex(12)
+        self._load()
+        if not voice_id:
+            voice_id = "voice_" + secrets.token_hex(12)
+
+        # If updating an existing voice, clean up any old sample file if suffix changed
+        old_record = self._records.get(voice_id)
         sample_path = self.samples_dir / f"{voice_id}{suffix or '.wav'}"
+        if old_record and old_record.sample_path != str(sample_path):
+            Path(old_record.sample_path).unlink(missing_ok=True)
+
         sample_path.write_bytes(sample)
         record = VoiceRecord(
             id=voice_id,

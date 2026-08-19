@@ -90,4 +90,7 @@ class VoiceBackend(ABC):
         ids = {v.id for v in voices}
         if voice in ids:
             return voice
+        names = {v.name: v.id for v in voices}
+        if voice in names:
+            return names[voice]
         return voices[0].id

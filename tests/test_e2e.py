@@ -273,3 +273,61 @@ def test_voice_consent_stub():
     )
     assert r.status_code == 200, r.text
     assert r.json()["id"].startswith("cons_")
+
+
+def test_custom_voice_id_lifecycle():
+    sample = (Path(__file__).parent / "clone_1.wav").read_bytes()
+    custom_id = "voice_mc_test_custom"
+
+    # 1. Enrol with custom ID
+    created = client.post(
+        "/v1/audio/voices",
+        headers=AUTH,
+        files={"audio_sample": ("sample.wav", sample, "audio/wav")},
+        data={"name": "MC Custom", "id": custom_id},
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["id"] == custom_id
+    assert created.json()["name"] == "MC Custom"
+
+    # 2. Overwrite the same custom ID with an updated name
+    updated = client.post(
+        "/v1/audio/voices",
+        headers=AUTH,
+        files={"audio_sample": ("sample.wav", sample, "audio/wav")},
+        data={"name": "MC Custom V2", "id": custom_id},
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["id"] == custom_id
+    assert updated.json()["name"] == "MC Custom V2"
+
+    # 3. Retrieve and verify name updated
+    retrieved = client.get(f"/v1/audio/voices/{custom_id}", headers=AUTH)
+    assert retrieved.status_code == 200
+    assert retrieved.json()["name"] == "MC Custom V2"
+
+    # 4. Synthesize with custom ID
+    spoken = client.post(
+        "/v1/audio/speech",
+        headers=AUTH,
+        json={"model": "vieneu", "input": "Kiểm tra giọng tùy chỉnh.", "voice": custom_id, "response_format": "wav"},
+    )
+    assert spoken.status_code == 200, spoken.text
+    assert len(spoken.content) > 0
+
+    # 5. Clean up
+    deleted = client.delete(f"/v1/audio/voices/{custom_id}", headers=AUTH)
+    assert deleted.status_code == 200 and deleted.json()["deleted"] is True
+
+
+def test_invalid_voice_id():
+    sample = (Path(__file__).parent / "clone_1.wav").read_bytes()
+    bad = client.post(
+        "/v1/audio/voices",
+        headers=AUTH,
+        files={"audio_sample": ("sample.wav", sample, "audio/wav")},
+        data={"name": "Bad ID", "id": "invalid voice id with spaces!"},
+    )
+    assert bad.status_code == 400
+    assert bad.json()["error"]["code"] == "invalid_voice_id"
+

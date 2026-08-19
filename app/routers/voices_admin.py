@@ -52,6 +52,10 @@ def _cloning_backend() -> VoiceBackend:
 async def create_voice(
     name: str = Form(...),
     audio_sample: UploadFile = File(...),
+    id: str | None = Form(
+        default=None,
+        description="Optional custom voice ID (e.g. `voice_mc_nam`). If omitted, a random `voice_...` ID is generated.",
+    ),
     consent: str | None = Form(default=None),  # optional (OpenAI requires it)
     denoise: bool = Form(
         default=True,
@@ -65,13 +69,23 @@ async def create_voice(
     if len(sample) > MAX_SAMPLE_BYTES:
         raise _error(400, "audio_sample exceeds the 10 MiB limit.", "audio_sample_too_large")
 
+    custom_id = id.strip() if id and id.strip() else None
+    if custom_id:
+        import re
+        if not re.fullmatch(r"^[a-zA-Z0-9_-]{1,64}$", custom_id):
+            raise _error(
+                400,
+                "Voice ID must contain only alphanumeric characters, underscores, and hyphens (1-64 chars).",
+                "invalid_voice_id",
+            )
+
     backend = _cloning_backend()
     suffix = os.path.splitext(audio_sample.filename or "")[1] or ".wav"
     # use_ref_codes is no longer a user knob; it stays on (True) internally for
     # best clone fidelity via the VoiceRecord default.
     record = voice_store.create(
         name=name, sample=sample, suffix=suffix, backend=backend.name,
-        denoise=denoise,
+        denoise=denoise, voice_id=custom_id,
     )
     try:
         backend.register_voice(
