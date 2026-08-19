@@ -56,29 +56,32 @@ class VieNeuBackend(VoiceBackend):
                 self._engine = Vieneu(backend="onnx")  # torch-free, fastest on CPU
             else:
                 self._engine = Vieneu(device=self._device)  # CUDA -> PyTorch
-        return self._engine
 
-    def _presets(self) -> list[Voice]:
-        if self._presets_cache is None:
-            engine = self._get_engine()
+            # Snapshot the genuine built-in preset voices before any clones are added
             voices: list[Voice] = []
-            # VieNeu returns (display_label, voice_id) tuples; the id is what
-            # infer() expects. Fall back to str() for any non-tuple entry.
-            for entry in engine.list_preset_voices():
+            for entry in self._engine.list_preset_voices():
                 if isinstance(entry, (tuple, list)):
                     label, voice_id = str(entry[0]), str(entry[-1])
                 else:
                     label = voice_id = str(entry)
                 voices.append(Voice(id=voice_id, name=label, model=self.name, language="vi"))
             self._presets_cache = voices
-        return self._presets_cache
+
+        return self._engine
+
+    def _presets(self) -> list[Voice]:
+        if self._presets_cache is None:
+            self._get_engine()
+        return self._presets_cache or []
 
     def list_voices(self) -> list[Voice]:
+        custom_ids = set(self._custom.keys())
+        presets = [p for p in self._presets() if p.id not in custom_ids]
         customs = [
             Voice(id=vid, name=name, model=self.name, language="vi")
             for vid, name in self._custom.items()
         ]
-        return list(self._presets()) + customs
+        return presets + customs
 
     def register_voice(
         self,
@@ -100,8 +103,8 @@ class VieNeuBackend(VoiceBackend):
         self._custom[voice_id] = name
 
     def remove_voice(self, voice_id: str) -> bool:
-        # VieNeu exposes no un-register; drop it from our advertised set (the
-        # in-engine entry is cleared on next restart). True if we held it.
+        if self._engine is not None and hasattr(self._engine, "_preset_voices"):
+            self._engine._preset_voices.pop(voice_id, None)
         return self._custom.pop(voice_id, None) is not None
 
     # Options this backend forwards to VieNeu's infer(). Only `style` is exposed;

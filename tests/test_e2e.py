@@ -331,3 +331,25 @@ def test_invalid_voice_id():
     assert bad.status_code == 400
     assert bad.json()["error"]["code"] == "invalid_voice_id"
 
+
+def test_no_duplicate_voices_after_cloning():
+    sample = (Path(__file__).parent / "clone_1.wav").read_bytes()
+    vid = "voice_dedup_test"
+    created = client.post(
+        "/v1/audio/voices",
+        headers=AUTH,
+        files={"audio_sample": ("sample.wav", sample, "audio/wav")},
+        data={"name": "Dedup Display Name", "id": vid},
+    )
+    assert created.status_code == 200
+
+    # Query /v1/voices and verify vid only appears ONCE with its display name
+    all_voices = client.get("/v1/voices", headers=AUTH).json()["data"]
+    matches = [v for v in all_voices if v["id"] == vid]
+    assert len(matches) == 1
+    assert matches[0]["name"] == "Dedup Display Name"
+
+    # Clean up
+    client.delete(f"/v1/audio/voices/{vid}", headers=AUTH)
+
+
