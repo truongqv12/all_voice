@@ -36,8 +36,21 @@ def _error(status_code: int, message: str, code: str) -> HTTPException:
     )
 
 
-def _cloning_backend() -> VoiceBackend:
-    """Default backend if it clones, else the first cloning-capable backend."""
+def _cloning_backend(model: str | None = None) -> VoiceBackend:
+    """Pick the backend to enrol a clone into.
+
+    Explicit `model` -> that exact registered backend, resolved by name (NOT via
+    the lenient registry.resolve/get that would fall back to the default for an
+    unknown name and enrol into the wrong engine); it must support cloning.
+    No `model` -> the default backend if it clones, else the first
+    cloning-capable backend."""
+    if model:
+        if not registry.has(model):
+            raise _error(400, f"Model '{model}' is not a registered backend.", "model_not_found")
+        backend = registry.get(model)
+        if backend is None or not backend.supports_cloning:
+            raise _error(400, f"Model '{model}' does not support voice cloning.", "cloning_unsupported")
+        return backend
     default = registry.get(None)
     if default is not None and default.supports_cloning:
         return default
@@ -61,6 +74,14 @@ async def create_voice(
         default=True,
         description="Denoise the reference. Leave on for noisy clips; turn OFF for already-clean samples to preserve the original timbre (better clone fidelity).",
     ),
+    model: str | None = Form(
+        default=None,
+        description="Backend to enrol into (e.g. `vieneu`). Omit to use the default cloning backend. Must be a registered backend that supports cloning.",
+    ),
+    ref_text: str | None = Form(
+        default=None,
+        description="Transcript of the reference audio. Required by clone-first engines (e.g. F5-TTS); VieNeu ignores it.",
+    ),
     _key: str = Depends(require_api_key),
 ) -> CustomVoice:
     sample = await audio_sample.read()
@@ -79,18 +100,21 @@ async def create_voice(
                 "invalid_voice_id",
             )
 
-    backend = _cloning_backend()
+    backend = _cloning_backend(model)
     suffix = os.path.splitext(audio_sample.filename or "")[1] or ".wav"
     # use_ref_codes is no longer a user knob; it stays on (True) internally for
-    # best clone fidelity via the VoiceRecord default.
+    # best clone fidelity via the VoiceRecord default. `ref_text` (when given)
+    # rides along in enrol_options — persisted so restart re-enrols identically.
+    enrol_options = {"ref_text": ref_text} if ref_text else {}
     record = voice_store.create(
         name=name, sample=sample, suffix=suffix, backend=backend.name,
-        denoise=denoise, voice_id=custom_id,
+        denoise=denoise, voice_id=custom_id, enrol_options=enrol_options,
     )
     try:
         backend.register_voice(
             record.id, record.name, record.sample_path,
             denoise=record.denoise, use_ref_codes=record.use_ref_codes,
+            options=record.enrol_options,
         )
     except Exception as exc:  # enrolment failed -> don't leave a dangling record
         voice_store.delete(record.id)

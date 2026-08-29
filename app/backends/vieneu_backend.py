@@ -20,7 +20,7 @@ import threading
 
 import numpy as np
 
-from .base import AudioResult, Voice, VoiceBackend
+from .base import AudioResult, InvalidOption, Voice, VoiceBackend
 
 
 def _torch_available() -> bool:
@@ -91,7 +91,11 @@ class VieNeuBackend(VoiceBackend):
         *,
         denoise: bool = True,
         use_ref_codes: bool = True,
+        options: dict | None = None,
     ) -> None:
+        # VieNeu clones from the audio sample alone; it uses only denoise/
+        # use_ref_codes and ignores `options` (e.g. a clone-first engine's
+        # ref_text). Accepting it keeps the enrolment contract engine-agnostic.
         engine = self._get_engine()  # same engine as presets; cloning needs torch
         with self._lock:
             # Enrol the clone under our id so infer(voice=voice_id) resolves it.
@@ -107,6 +111,8 @@ class VieNeuBackend(VoiceBackend):
             self._engine._preset_voices.pop(voice_id, None)
         return self._custom.pop(voice_id, None) is not None
 
+    # Reading styles VieNeu understands; an unknown value is rejected (400).
+    _STYLES = {"tu_nhien", "tin_tuc", "doc_truyen"}
     # Options this backend forwards to VieNeu's infer(). Only `style` is exposed;
     # sampling params are left to VieNeu's internal defaults.
     _INFER_OPTIONS = ("style",)
@@ -115,6 +121,13 @@ class VieNeuBackend(VoiceBackend):
         self, text: str, voice: str, speed: float = 1.0, options: dict | None = None
     ) -> AudioResult:
         options = options or {}
+        # Validate the knob VieNeu owns; other keys (a future engine's) are
+        # simply not forwarded.
+        style = options.get("style")
+        if style is not None and style not in self._STYLES:
+            raise InvalidOption(
+                f"Unknown style '{style}'. Allowed: {sorted(self._STYLES)}"
+            )
         kwargs = {k: options[k] for k in self._INFER_OPTIONS if k in options}
         # One engine holds both presets and enrolled clones.
         engine = self._get_engine()

@@ -28,6 +28,20 @@ class Registry:
             return self._backends[self._default]
         return None
 
+    def resolve(self, model: str | None) -> tuple[VoiceBackend | None, bool]:
+        """Resolve a model name, reporting whether the match was explicit.
+
+        Returns `(backend, explicit)`. `explicit` is True when `model` names a
+        registered backend (the client picked it on purpose -> strict voice
+        routing); False when the name is unknown/empty and falls back to the
+        default (OpenAI-generic -> lenient voice routing). Same fallback as
+        `get`, plus the flag the router needs to choose strict vs lenient."""
+        if model and model in self._backends:
+            return self._backends[model], True
+        if self._default is not None:
+            return self._backends[self._default], False
+        return None, False
+
     def has(self, model: str) -> bool:
         return model in self._backends
 

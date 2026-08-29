@@ -49,10 +49,19 @@ class SpeechRequest(BaseModel):
         default=None, description="Accepted for OpenAI compatibility; not applied by every backend yet.",
     )
 
-    # --- Backend tuning knob (OpenAI extension; pass via `extra_body`). ---
-    # Only `style` is exposed; sampling params are left to VieNeu's own defaults.
-    style: Literal["tu_nhien", "tin_tuc", "doc_truyen"] | None = Field(
-        default=None, description="Reading style: tu_nhien (natural) / tin_tuc (news) / doc_truyen (storytelling).",
+    # --- Backend tuning knobs (OpenAI extension; pass via `extra_body`). ---
+    # `style` is provider-neutral now: the schema accepts any string and the
+    # target backend validates it (VieNeu: tu_nhien/tin_tuc/doc_truyen). Sampling
+    # params stay backend-internal.
+    style: str | None = Field(
+        default=None,
+        description="Reading style; valid values are backend-defined (VieNeu: tu_nhien / tin_tuc / doc_truyen). The backend rejects an unknown value with 400.",
+    )
+    # Free-form bag for engine-specific params (e.g. a future VoiceVox
+    # `speedScale`) so a new engine's knobs pass through without a schema change.
+    extra: dict[str, Any] | None = Field(
+        default=None,
+        description="OpenAI extension: backend-specific parameters (via extra_body). A backend ignores keys it does not understand.",
     )
 
     model_config = {
@@ -70,12 +79,18 @@ class SpeechRequest(BaseModel):
         }
     }
 
-    #: Keys forwarded to the backend as tuning options.
+    #: Named knobs overlaid onto `extra` when building backend options.
     _OPTION_KEYS = ("style",)
 
     def backend_options(self) -> dict[str, Any]:
-        """Non-null tuning options to hand to the backend."""
-        return {k: v for k in self._OPTION_KEYS if (v := getattr(self, k)) is not None}
+        """Tuning options for the backend: `extra` plus any non-null named knob.
+
+        A named knob (`style`) overrides the same key in `extra`."""
+        opts = dict(self.extra or {})
+        for k in self._OPTION_KEYS:
+            if (v := getattr(self, k)) is not None:
+                opts[k] = v
+        return opts
 
     @field_validator("voice")
     @classmethod

@@ -39,6 +39,7 @@ def _reenrol_cloned_voices() -> None:
                 backend.register_voice(
                     record.id, record.name, record.sample_path,
                     denoise=record.denoise, use_ref_codes=record.use_ref_codes,
+                    options=record.enrol_options,
                 )
             except Exception:  # a bad/missing sample must not block startup
                 continue

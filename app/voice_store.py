@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import secrets
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from .config import get_settings
@@ -26,6 +26,10 @@ class VoiceRecord:
     # the same clone. Defaults keep old registries (missing these keys) valid.
     denoise: bool = True
     use_ref_codes: bool = True
+    # Engine-specific enrolment params (e.g. a clone-first engine's ref_text),
+    # persisted so restart re-enrols identically. Empty default keeps old
+    # registries (missing this key) loading via the same defaulted-field pattern.
+    enrol_options: dict = field(default_factory=dict)
 
 
 class VoiceStore:
@@ -57,6 +61,7 @@ class VoiceStore:
         denoise: bool = True,
         use_ref_codes: bool = True,
         voice_id: str | None = None,
+        enrol_options: dict | None = None,
     ) -> VoiceRecord:
         self._load()
         if not voice_id:
@@ -77,6 +82,7 @@ class VoiceStore:
             sample_path=str(sample_path),
             denoise=denoise,
             use_ref_codes=use_ref_codes,
+            enrol_options=dict(enrol_options or {}),
         )
         self._records[voice_id] = record
         self._save()

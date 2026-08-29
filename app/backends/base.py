@@ -35,6 +35,14 @@ class AudioResult:
     sample_rate: int
 
 
+class InvalidOption(ValueError):
+    """A backend rejects a tuning/enrolment option (bad key or value).
+
+    Raised by a backend that owns a knob (e.g. VieNeu validating `style`, or a
+    clone-first engine requiring `ref_text`). The router maps it to 400, keeping
+    it distinct from an unexpected error (500)."""
+
+
 class VoiceBackend(ABC):
     #: Backend id; doubles as the OpenAI-style "model" name in requests.
     name: str
@@ -62,12 +70,16 @@ class VoiceBackend(ABC):
         *,
         denoise: bool = True,
         use_ref_codes: bool = True,
+        options: dict | None = None,
     ) -> None:
         """Enrol a cloned voice from a reference audio file (cloning backends).
 
         `denoise` cleans the reference (leave on for noisy clips, turn off for
         already-clean samples to preserve timbre); `use_ref_codes` anchors
-        prosody/timbre with reference codes. A backend ignores knobs it lacks."""
+        prosody/timbre with reference codes. `options` carries engine-specific
+        enrolment params (e.g. a clone-first engine's `ref_text`); a backend
+        raises `InvalidOption` for a required option it is missing and ignores
+        knobs it lacks."""
         raise NotImplementedError(f"Backend '{self.name}' does not support voice cloning")
 
     def remove_voice(self, voice_id: str) -> bool:
@@ -78,12 +90,15 @@ class VoiceBackend(ABC):
         record), False if it did not know the id."""
         raise NotImplementedError(f"Backend '{self.name}' does not support voice cloning")
 
-    def resolve_voice(self, voice: str | None) -> str:
+    def resolve_voice(self, voice: str | None, *, strict: bool = False) -> str | None:
         """Map a requested voice to a real one this backend owns.
 
-        Enables drop-in OpenAI compatibility: an unknown or absent voice name
-        (e.g. "alloy") falls back to this backend's first preset instead of
-        erroring."""
+        `strict` (set when the client named this backend explicitly): an unknown
+        voice returns None so the router can 404 instead of silently guessing.
+        Non-strict (the request used an OpenAI-generic model like `tts-1` that
+        fell back to the default backend): an unknown/absent voice (e.g.
+        "alloy") falls back to the first preset, preserving drop-in
+        compatibility."""
         voices = self.list_voices()
         if not voices:
             raise RuntimeError(f"Backend '{self.name}' exposes no voices")
@@ -93,4 +108,6 @@ class VoiceBackend(ABC):
         names = {v.name: v.id for v in voices}
         if voice in names:
             return names[voice]
+        if strict:
+            return None
         return voices[0].id

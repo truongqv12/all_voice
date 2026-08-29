@@ -122,11 +122,18 @@ serialize bằng một khóa (lock) trong backend.
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 
 **Knob tinh chỉnh** (gửi qua `extra_body` của OpenAI SDK; client thường không bị
-ảnh hưởng). Chỉ còn **một** knob được phơi ra:
+ảnh hưởng):
 
 | Knob | Miền giá trị | Ý nghĩa |
 |---|---|---|
-| `style` | tu_nhien / tin_tuc / doc_truyen | Kiểu đọc: tự nhiên / bản tin / kể chuyện |
+| `style` | *(chuỗi tự do; backend tự quy định giá trị hợp lệ)* | Kiểu đọc. VieNeu chấp nhận `tu_nhien` / `tin_tuc` / `doc_truyen`; giá trị lạ → **400** (do backend từ chối, không phải schema) |
+| `extra` | *(object tuỳ ý)* | Túi tham số **riêng của từng engine** (vd `speedScale` của một engine tương lai). Được gộp vào options; backend **bỏ qua** khoá nó không hiểu |
+
+> **Định tuyến trung lập provider:** `style` không còn bị ép `Literal` trong schema
+> chung — mỗi backend **tự validate** knob nó sở hữu (VieNeu ném `InvalidOption` →
+> router map thành **400 `invalid_option`**). Nhờ đó `style="tin_tuc"` map sang
+> engine khác được, và param mới của engine đi qua `extra` mà **không phải sửa
+> schema**. `style` trùng khoá trong `extra` thì `style` thắng.
 
 Các tham số sampling (`temperature`, `top_k`, `top_p`, `repetition_penalty`,
 `silence_p`, `crossfade_p`, `max_chars`) **không còn là tham số đầu vào** — VieNeu
@@ -226,11 +233,30 @@ registry.register(PiperBackend())     # thêm đúng 1 dòng
 Xong. Tự động có mặt trong `GET /v1/models` và `GET /v1/voices`; client gọi bằng
 `model="piper"`. **Không sửa** router/schema/auth/encoder.
 
+- **Ngôn ngữ = thuộc tính của voice:** gắn `language` cho mỗi `Voice` (vd `"ja"`,
+  `"en"`). Client **chọn ngôn ngữ bằng cách chọn voice/model**, không có field
+  `language` trên request TTS. Voice tự xuất hiện ở bộ lọc khám phá
+  `GET /v1/voices?model=<tên>&language=<mã>` (cộng dồn) — không cần thêm code.
+- **Định tuyến strict tự động:** `resolve_voice(voice, *, strict=…)` kế thừa từ
+  `base` đã lo sẵn — client gọi **đích danh** model của bạn + voice lạ → **404
+  `unknown_voice`**; model OpenAI-generic (`tts-1`) rơi về default vẫn **lenient**.
+  Adapter thường **không cần** override.
+- **Knob riêng engine:** validate knob bạn sở hữu và ném `InvalidOption` cho giá
+  trị sai (router → **400**); đọc param riêng từ `options` (gồm cả `extra` của
+  request). Khoá không hiểu thì bỏ qua.
 - Muốn hỗ trợ clone: đặt `supports_cloning = True` và cài đặt thêm
-  `register_voice(voice_id, name, sample_path, *, denoise=True, use_ref_codes=True)`
-  + `remove_voice(voice_id)`. Backend bỏ qua knob nào nó không có.
+  `register_voice(voice_id, name, sample_path, *, denoise=True, use_ref_codes=True, options=None)`
+  + `remove_voice(voice_id)`. Engine cần **reference text** (vd F5) đọc
+  `options.get("ref_text")`, thiếu → ném `InvalidOption`. `ref_text` được client
+  gửi khi enrol (`POST /v1/audio/voices` form `ref_text`), **persist** trong
+  `enrol_options` và tự truyền lại khi re-enrol lúc khởi động. Khi enrol, client
+  chọn engine bằng form `model=<tên backend>` (thiếu → backend clone mặc định).
 - Encoder tự lo mọi định dạng — adapter **chỉ cần trả PCM float32 + sample_rate**
   (sample_rate bao nhiêu cũng được, encoder xử lý; riêng `opus` cần 48/24/16/12/8kHz).
+
+> **Trạng thái multi-engine:** lõi đã **mở seam sẵn sàng** cho engine đa ngôn ngữ,
+> nhưng **VoiceVox (JA)** và **F5-TTS (EN)** **chưa được tích hợp** — sẽ có plan
+> riêng cho từng adapter thật.
 
 ```mermaid
 flowchart LR

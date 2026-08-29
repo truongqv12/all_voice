@@ -10,6 +10,7 @@ from fastapi.responses import Response
 
 from ..audio.encoder import content_type_for, encode
 from ..auth import require_api_key
+from ..backends.base import InvalidOption
 from ..backends.registry import registry
 from ..limits import synth_semaphore
 from ..logging_config import get_logger
@@ -44,22 +45,37 @@ _BINARY_AUDIO_RESPONSE = {"schema": {"type": "string", "format": "binary"}}
     },
 )
 async def create_speech(req: SpeechRequest, _key: str = Depends(require_api_key)) -> Response:
-    backend = registry.get(req.model)
+    backend, explicit = registry.resolve(req.model)
     if backend is None:
         raise HTTPException(
             status_code=404,
             detail={"message": f"Model '{req.model}' not found.", "type": "invalid_request_error", "code": "model_not_found"},
         )
 
-    voice = backend.resolve_voice(req.voice)
+    # Explicit model + unknown voice -> 404 (don't silently read the wrong voice
+    # in the wrong language). An OpenAI-generic model stays lenient.
+    voice = backend.resolve_voice(req.voice, strict=explicit)
+    if voice is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": f"Voice '{req.voice}' not found for model '{req.model}'.", "type": "invalid_request_error", "code": "unknown_voice"},
+        )
     options = req.backend_options()
     start = time.perf_counter()
     # Synthesis + encoding are blocking/CPU-bound -> run off the event loop,
     # bounded by the global semaphore.
     async with synth_semaphore:
-        result = await anyio.to_thread.run_sync(
-            backend.synthesize, req.input, voice, req.speed, options
-        )
+        try:
+            result = await anyio.to_thread.run_sync(
+                backend.synthesize, req.input, voice, req.speed, options
+            )
+        except InvalidOption as exc:
+            # A backend rejected a tuning knob (e.g. an unknown `style`) -> 400,
+            # not the 500 an unexpected error would get.
+            raise HTTPException(
+                status_code=400,
+                detail={"message": str(exc), "type": "invalid_request_error", "code": "invalid_option"},
+            )
     # `speed` is forwarded to the backend; a backend honours it only if it has
     # native speed control. VieNeu does not, so speed is a no-op there — the
     # gateway no longer time-stretches (that hurt speech quality).
