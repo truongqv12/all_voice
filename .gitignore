@@ -18,6 +18,14 @@ data/
 logs/
 .hf_cache/
 
+# --- Downloaded TTS model assets (large; fetched via scripts/, not committed) ---
+# Kept out of the tree except the .gitkeep placeholder.
+models/*
+!models/.gitkeep
+
+# --- Synth test artifacts (WAVs saved for manual listening) ---
+tests/output/
+
 # --- Generated audio (keep the test clone sample) ---
 *.wav
 !tests/*.wav
