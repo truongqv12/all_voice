@@ -126,7 +126,7 @@ serialize bằng một khóa (lock) trong backend.
 | `ENABLE_VOICEVOX` | `true` | Bật engine tiếng Nhật VOICEVOX (đăng ký chỉ khi asset có — xem mục 12) |
 | `VOICEVOX_DICT_DIR` | `models/voicevox/open_jtalk_dic_utf_8-1.11` | Thư mục OpenJTalk dict |
 | `VOICEVOX_VVM_DIR` | `models/voicevox/vvms` | Thư mục chứa file VVM (voice model) |
-| `VOICEVOX_ONNXRUNTIME` | *(bỏ trống)* | Path onnxruntime riêng; rỗng = dùng bản `voicevox_core` kèm |
+| `VOICEVOX_ONNXRUNTIME` | `models/voicevox/onnxruntime/lib/libvoicevox_onnxruntime.so` | Lib ONNX Runtime (wheel KHÔNG kèm sẵn); `fetch-voicevox.sh` tải về path này + symlink độc lập version. Rỗng = dùng runtime sẵn trên loader path |
 | `VOICEVOX_SPEAKER_ALLOWLIST` | *(bỏ trống)* | Lọc `style_id`/`uuid:style_id` được expose; rỗng = tất cả |
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 

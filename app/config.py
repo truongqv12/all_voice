@@ -52,8 +52,11 @@ class Settings(BaseSettings):
     enable_voicevox: bool = True
     voicevox_dict_dir: str = "models/voicevox/open_jtalk_dic_utf_8-1.11"
     voicevox_vvm_dir: str = "models/voicevox/vvms"
-    # "" = let voicevox_core load the onnxruntime it ships with; else a path.
-    voicevox_onnxruntime: str = ""
+    # Path to the VOICEVOX ONNX Runtime shared library. The pip wheel bundles NO
+    # runtime, so it must be loaded from a file; `scripts/fetch-voicevox.sh`
+    # downloads it here and drops a version-independent symlink. Set "" only to
+    # fall back to a runtime already discoverable on the loader path.
+    voicevox_onnxruntime: str = "models/voicevox/onnxruntime/lib/libvoicevox_onnxruntime.so"
     # Comma-separated `style_id` or `speaker_uuid:style_id` allowed on the API;
     # empty = expose every style found in the loadable VVMs.
     voicevox_speaker_allowlist: str = ""

@@ -57,10 +57,19 @@ class VoicevoxBackend(VoiceBackend):
 
     @staticmethod
     def is_available(settings) -> bool:
-        """True if `voicevox_core` imports AND the dict dir + >=1 VVM exist."""
+        """True if `voicevox_core` imports AND the dict dir + >=1 VVM exist AND,
+        when an onnxruntime path is configured (the default), that lib is present.
+
+        The wheel bundles no runtime, so a configured-but-missing lib would only
+        fail later at synth time; gating registration here keeps a half-installed
+        VOICEVOX from advertising voices it cannot render. An empty path opts into
+        loading a runtime already on the loader path, so it is not checked here."""
         if importlib.util.find_spec("voicevox_core") is None:
             return False
         if not os.path.isdir(settings.voicevox_dict_dir):
+            return False
+        ort = settings.voicevox_onnxruntime
+        if ort and not os.path.exists(ort):
             return False
         return _has_vvm(settings.voicevox_vvm_dir)
 

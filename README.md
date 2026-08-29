@@ -307,7 +307,7 @@ hoặc repo CTranslate2) · `ASR_COMPUTE_TYPE` (`int8` cho CPU, `float16` cho CU
 **Kokoro / English (extra `en`):** `ENABLE_KOKORO` (mặc định `true`) · `KOKORO_MODEL_PATH`
 · `KOKORO_VOICES_PATH` · `KOKORO_DEFAULT_VOICE` (`af_heart`). **VOICEVOX / Japanese
 (extra `ja`):** `ENABLE_VOICEVOX` (mặc định `true`) · `VOICEVOX_DICT_DIR` ·
-`VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` (rỗng = dùng bản kèm) ·
+`VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` (mặc định = lib do `fetch-voicevox.sh` tải; rỗng = runtime sẵn trên loader path) ·
 `VOICEVOX_SPEAKER_ALLOWLIST` (rỗng = mọi style). Nguồn mặc định: `app/config.py`.
 Bật flag mà thiếu asset → engine skip an toàn; đăng ký chỉ khi package **và** file
 model có mặt.
