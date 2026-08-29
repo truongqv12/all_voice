@@ -8,13 +8,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from . import __version__
+from . import __version__, asr
 from .backends.registry import registry
 from .backends.vieneu_backend import VieNeuBackend
 from .config import get_settings
 from .docs_ui import get_audio_swagger_ui_html
 from .logging_config import get_logger, setup_logging
-from .routers import models, speech, voices, voices_admin
+from .routers import models, speech, transcriptions, voices, voices_admin
 from .voice_store import voice_store
 
 
@@ -61,6 +61,7 @@ Errors use the OpenAI envelope: `{"error": {"message", "type", "code"}}`.
 
 TAGS_METADATA = [
     {"name": "speech", "description": "Text-to-speech synthesis."},
+    {"name": "transcriptions", "description": "Speech-to-text with subtitle timing (SRT/VTT/verbose_json)."},
     {"name": "voices", "description": "Preset + cloned voice discovery and management (OpenAI custom-voice API)."},
     {"name": "models", "description": "Registered backends."},
     {"name": "system", "description": "Liveness."},
@@ -82,11 +83,13 @@ def create_app() -> FastAPI:
     _register_backends()
     _reenrol_cloned_voices()
     log.info(
-        "ready | version=%s device=%s backends=%s cloned_voices=%d max_concurrency=%d",
-        __version__, settings.device, registry.models(), len(voice_store.list()), settings.max_concurrency,
+        "ready | version=%s device=%s backends=%s cloned_voices=%d max_concurrency=%d asr_model=%s asr_available=%s",
+        __version__, settings.device, registry.models(), len(voice_store.list()),
+        settings.max_concurrency, settings.asr_model, asr.is_available(),
     )
 
     app.include_router(speech.router, prefix="/v1")
+    app.include_router(transcriptions.router, prefix="/v1")
     app.include_router(voices.router, prefix="/v1")
     app.include_router(voices_admin.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")

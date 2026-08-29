@@ -143,6 +143,49 @@ class VoiceConsent(BaseModel):
     object: str = "audio.voice_consent"
 
 
+TranscriptionResponseFormat = Literal["json", "text", "srt", "vtt", "verbose_json"]
+
+
+class TranscriptionSegment(BaseModel):
+    """One timed segment in an OpenAI `verbose_json` transcription."""
+
+    id: int
+    seek: int
+    start: float
+    end: float
+    text: str
+    tokens: list[int] = Field(default_factory=list)
+    temperature: float
+    avg_logprob: float
+    compression_ratio: float
+    no_speech_prob: float
+
+
+class TranscriptionWord(BaseModel):
+    """One word with timing (present when `timestamp_granularities[]=word`)."""
+
+    word: str
+    start: float
+    end: float
+
+
+class TranscriptionVerbose(BaseModel):
+    """OpenAI `verbose_json` response (POST /v1/audio/transcriptions)."""
+
+    task: str = "transcribe"
+    language: str
+    duration: float
+    text: str
+    segments: list[TranscriptionSegment]
+    words: list[TranscriptionWord] | None = None
+
+
+class Transcription(BaseModel):
+    """OpenAI default `json` response: just the transcript text."""
+
+    text: str
+
+
 class ErrorDetail(BaseModel):
     message: str
     type: str = "invalid_request_error"

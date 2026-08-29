@@ -47,6 +47,7 @@ flowchart LR
 | 🔌 **Tương thích OpenAI** | `audio.speech`, giọng tùy chỉnh, models — cắm thẳng vào SDK `openai` |
 | 🧩 **Backend cắm-rút** | Engine mới = 1 adapter, tự xuất hiện trong `/v1/models` & `/v1/voices` |
 | 🎙️ **Clone giọng** | Enrol một lần từ mẫu 3–8s, tái dùng mãi bằng `voice_id` (lưu trên đĩa) |
+| 🎬 **Speech-to-Text** | `audio.transcriptions` → phụ đề **SRT/VTT** + timing câu/từ (faster-whisper); không dịch |
 | 🎛️ **Knob tinh chỉnh** | Chỉ `style` (kiểu đọc) — qua `extra_body`; sampling để VieNeu tự lo |
 | ⚡ **Ưu tiên CPU** | Preset ONNX không cần torch & nhanh; clone giọng cần thêm PyTorch |
 | 🔊 **6 định dạng** | mp3 · opus · aac · flac · wav · pcm (PyAV, không cần FFmpeg hệ thống) |
@@ -86,6 +87,7 @@ Mọi route `/v1/*` cần header `Authorization: Bearer <key>`.
 | Method | Path | Mô tả |
 |--------|------|-------|
 | `POST` | `/v1/audio/speech` | Tổng hợp giọng nói (schema OpenAI) |
+| `POST` | `/v1/audio/transcriptions` | Nhận dạng giọng → transcript + phụ đề (cần extra `asr`) |
 | `GET`  | `/v1/models` | Liệt kê các backend đã đăng ký |
 | `GET`  | `/v1/voices` | Liệt kê giọng preset + giọng clone (mọi backend) |
 | `POST` | `/v1/audio/voices` | Tạo giọng clone (multipart) |
@@ -169,6 +171,50 @@ theo mặc định nội bộ. Field `speed` của OpenAI vẫn **được chấ
 nhưng là **no-op** với VieNeu. Cue cảm xúc (`[cười]`) và chuyển ngữ Việt⇄Anh chạy
 inline ngay trong `input`.
 
+## 🎬 Tạo phụ đề (Speech-to-Text)
+
+Chiều ngược lại: **audio → transcript + mốc thời gian**, dùng
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2, int8 trên
+CPU). Endpoint `POST /v1/audio/transcriptions` theo **đúng schema OpenAI** nên gọi
+thẳng bằng SDK `openai`. **Chỉ nhận dạng + gắn mốc thời gian — không dịch.**
+
+Cần cài thêm extra `asr` (không nằm trong base install cho nhẹ):
+
+```bash
+uv sync --extra asr        # kéo faster-whisper (thiếu extra → endpoint trả 503 rõ ràng)
+```
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://localhost:8123/v1", api_key="dev-key")
+
+# Phụ đề SRT (hoặc "vtt") — trả thẳng chuỗi phụ đề.
+srt = client.audio.transcriptions.create(
+    model="whisper-1", file=open("bai_giang.mp3", "rb"), response_format="srt",
+)
+open("bai_giang.srt", "w", encoding="utf-8").write(srt)
+
+# JSON đầy đủ: text + segments (mốc từng câu) + duration.
+verbose = client.audio.transcriptions.create(
+    model="whisper-1", file=open("bai_giang.mp3", "rb"), response_format="verbose_json",
+)
+
+# Karaoke: mốc từng TỪ (words[]) khi bật timestamp_granularities=["word"].
+words = client.audio.transcriptions.create(
+    model="whisper-1", file=open("bai_giang.mp3", "rb"),
+    response_format="verbose_json", timestamp_granularities=["word"],
+)
+```
+
+- `response_format`: `json` (mặc định, `{"text": ...}`) · `text` · `srt` · `vtt` · `verbose_json`.
+- `timestamp_granularities=["word"]` (chỉ với `verbose_json`) thêm mảng `words[]`, mỗi
+  từ có `start`/`end` — dùng cho hiệu ứng **karaoke**. Hiển thị do tool phía bạn tự lo.
+- `model` nhận mọi tên (vd `whisper-1`) và dùng engine cấu hình; đổi model qua `ASR_MODEL`.
+
+> [!NOTE]
+> Model whisper (`small` ~0.5 GB) tải ở **request transcribe đầu tiên**, cache tại
+> `~/.cache/huggingface/hub`. Đặt `ASR_MODEL=tiny` cho máy yếu / test nhanh.
+
 ## 🚢 Triển khai
 
 Tự host trên Linux/macOS qua các script trong [`deploy/`](deploy/):
@@ -190,6 +236,7 @@ Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng
 | `all_voice.startup` | device, các backend, số giọng clone |
 | `all_voice.request` | `METHOD path → status (độ trễ ms)` |
 | `all_voice.speech` | mỗi lần synth: model / voice / định dạng / số ký tự / thời lượng |
+| `all_voice.transcribe` | mỗi lần transcribe: model / bytes / định dạng / ngôn ngữ / số segment / thời lượng |
 | `all_voice.error` | traceback lỗi 500 (đồng thời trả về envelope lỗi chuẩn OpenAI) |
 
 `faulthandler` in traceback lỗi native (segfault) ra stderr. Dưới systemd,
@@ -199,6 +246,10 @@ Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng
 
 `API_KEYS` · `DEVICE` (cpu/cuda/auto) · `DEFAULT_BACKEND` · `MAX_CONCURRENCY` ·
 `VOICES_DIR` · `HOST` · `PORT` (mặc định 8123) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
+
+**Speech-to-Text (extra `asr`):** `ASR_MODEL` (mặc định `small`; tiny/base/small/medium/large-v3
+hoặc repo CTranslate2) · `ASR_COMPUTE_TYPE` (`int8` cho CPU, `float16` cho CUDA). ASR
+**dùng chung `MAX_CONCURRENCY`** với TTS — cùng một ngân sách job CPU, tăng khi máy khỏe.
 
 ## 🧩 Thêm một Backend
 
@@ -212,5 +263,6 @@ Không phải sửa router/schema/auth/encoder — nó tự xuất hiện trong 
 ## 🧪 Test
 
 ```bash
-uv run pytest -q     # một bộ test end-to-end: dựng app, gọi mọi endpoint
+uv sync --extra clone --extra asr   # test transcribe cần extra asr (dùng model tiny)
+uv run pytest -q                     # end-to-end: dựng app, gọi mọi endpoint
 ```

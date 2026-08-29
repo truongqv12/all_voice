@@ -98,9 +98,11 @@ serialize bằng một khóa (lock) trong backend.
 | `app/audio/encoder.py` | PCM → mp3/opus/aac/flac/wav/pcm (PyAV + stdlib) |
 | `app/voice_store.py` | Lưu mẫu giọng clone + registry.json (đĩa) |
 | `app/routers/speech.py` | `POST /v1/audio/speech` |
+| `app/routers/transcriptions.py` | `POST /v1/audio/transcriptions` (speech-to-text; xem mục 11) |
 | `app/routers/models.py` | `GET /v1/models` |
 | `app/routers/voices.py` | `GET /v1/voices` (gộp preset + clone) |
 | `app/routers/voices_admin.py` | CRUD giọng clone + consent (chuẩn OpenAI) |
+| `app/asr/` | Module Speech-to-Text (tách khỏi TTS): `transcriber.py` (faster-whisper) + `subtitles.py` (formatter thuần) |
 
 ---
 
@@ -113,8 +115,10 @@ serialize bằng một khóa (lock) trong backend.
 | `API_KEYS` | `dev-key` | Danh sách key, phân tách bằng dấu phẩy |
 | `DEVICE` | `cpu` | `cpu` (ONNX) / `cuda` / `auto` |
 | `DEFAULT_BACKEND` | `vieneu` | Backend nhận model không nhận diện được |
-| `MAX_CONCURRENCY` | `2` | Số job synth song song tối đa |
+| `MAX_CONCURRENCY` | `2` | Số job CPU song song tối đa — **dùng chung** cho synth (TTS) và transcribe (ASR) |
 | `VOICES_DIR` | `data/voices` | Nơi lưu mẫu giọng clone |
+| `ASR_MODEL` | `small` | Model faster-whisper (tiny/base/small/medium/large-v3 hoặc repo CT2) — xem mục 11 |
+| `ASR_COMPUTE_TYPE` | `int8` | Kiểu tính CTranslate2: `int8` (CPU) / `float16` (CUDA) |
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 
 **Knob tinh chỉnh** (gửi qua `extra_body` của OpenAI SDK; client thường không bị
@@ -278,3 +282,50 @@ Chi tiết endpoint/schema **không** viết ở đây — xem **Swagger tự si
 `http://localhost:8000/docs` (thử API ngay trên trình duyệt), `/redoc`, hoặc
 `/openapi.json`. Kế hoạch & số đo hiệu năng xem
 `plans/260810-2317-openai-compat-tts-api/plan.md`.
+
+---
+
+## 11. Speech-to-Text (ASR) — module `app/asr/`
+
+Chiều ngược lại của TTS: **audio → transcript + mốc thời gian**, phơi ra
+`POST /v1/audio/transcriptions` (chuẩn OpenAI). Engine là
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2, int8 trên
+CPU). **Chỉ nhận dạng — không dịch.** Cần extra `asr`: `uv sync --extra asr`.
+
+```mermaid
+flowchart LR
+    Client["OpenAI SDK / HTTP<br/>(file audio)"] -->|Bearer key| Auth[Auth]
+    Auth --> R["/v1/audio/transcriptions<br/>router (multipart)"]
+    R -->|"synth_semaphore dùng chung"| T["asr.transcribe()<br/>faster-whisper WhisperModel<br/>(lazy, int8, ASR_MODEL)"]
+    T -->|segments + words| F["subtitles.py<br/>formatter thuần"]
+    F -->|srt / vtt| Client
+    F -->|verbose_json / json / text| Client
+```
+
+**Vì sao tách riêng, không dùng registry.** ASR là **một engine duy nhất** (không
+có nhu cầu đa-backend như TTS), nên dựng registry mới chỉ thêm phức tạp thừa (KISS).
+Thay vào đó `app/asr/` là module độc lập, **tách hẳn** khỏi `app/backends/` (lõi TTS):
+đổi/nâng ASR không đụng `VoiceBackend`/registry/router speech.
+
+**Các seam chính:**
+
+| Thành phần | Vai trò |
+|---|---|
+| `app/asr/transcriber.py` | `transcribe(audio_bytes, *, language, want_words, prompt, temperature)` → `TranscriptionResult`. Nạp model **lazy** (singleton toàn process, `_get_model()`) ở lần transcribe đầu — giống VieNeu. Thiếu faster-whisper → `AsrUnavailableError` (router bắt → 503). `is_available()` cho startup log. |
+| `app/asr/subtitles.py` | Formatter **thuần** (không import faster-whisper): `to_srt` / `to_vtt` / `to_verbose_json` / `to_json` / `format_timestamp`. Test nhanh, tất định, không cần tải model. |
+| `app/routers/transcriptions.py` | Router mỏng: multipart in, chạy off-thread dưới `synth_semaphore`, chọn 1 trong 5 `response_format`. |
+
+**Ngân sách CPU dùng chung.** ASR **tái dùng `synth_semaphore`** (mục 3) chứ không
+tạo semaphore riêng: TTS + ASR chia chung hạn mức `MAX_CONCURRENCY`. Máy khỏe hơn
+chỉ cần tăng `MAX_CONCURRENCY`. faster-whisper tự decode + resample về 16kHz mono
+qua `av`, nên không dùng `app/audio/encoder.py`.
+
+**Karaoke (word-level).** `timestamp_granularities=["word"]` bật `word_timestamps`
+→ `verbose_json` có mảng `words[]` chuẩn OpenAI (mỗi từ `start`/`end`). Gateway
+**không** tự chế phụ đề gắn thẻ từng từ — tool tiêu thụ tự lo hiển thị. Độ chính xác
+timing word dựa DTW của faster-whisper (đủ cho phụ đề/karaoke; forced-alignment như
+WhisperX là nâng cấp tương lai, ngoài scope).
+
+**Model tải về:** `ASR_MODEL` (mặc định `small` ~0.5GB) tải ở request transcribe
+**đầu tiên**, cache chung `~/.cache/huggingface/hub` (mục 8). Đặt `ASR_MODEL=tiny`
+cho máy yếu/test.

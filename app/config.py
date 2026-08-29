@@ -16,10 +16,18 @@ class Settings(BaseSettings):
     device: str = "cpu"
     # Backend that answers unrecognised (e.g. OpenAI) model names.
     default_backend: str = "vieneu"
-    # Upper bound on concurrent synthesis jobs (TTS is CPU-bound).
+    # Upper bound on concurrent synthesis jobs (TTS is CPU-bound). Shared with
+    # ASR transcription jobs (see limits.synth_semaphore).
     max_concurrency: int = 2
     # Where cloned-voice samples + registry are persisted.
     voices_dir: str = "data/voices"
+
+    # faster-whisper model for speech-to-text: tiny/base/small/medium/large-v3,
+    # or a CTranslate2 repo id (e.g. a PhoWhisper-ct2). `small` balances quality
+    # and CPU/RAM cost; downloaded on the first transcribe request (~0.5GB).
+    asr_model: str = "small"
+    # CTranslate2 compute type: int8 is best for CPU; use float16 on CUDA.
+    asr_compute_type: str = "int8"
 
     host: str = "0.0.0.0"
     # 8123: avoids 8000/8080 which are common and often fall inside Windows'
