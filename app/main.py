@@ -72,30 +72,29 @@ def _reenrol_cloned_voices() -> None:
 
 
 API_DESCRIPTION = """
-OpenAI-compatible, multi-backend Text-to-Speech gateway. Engines register by
-language and appear in `/v1/models` + `/v1/voices` as their assets are installed:
-**VieNeu-TTS** (Vietnamese, cloning) · **Kokoro-82M** (English presets) ·
-**VOICEVOX** (Japanese presets). VieNeu stays the default for OpenAI-generic model
-names. Pick a language by picking a `model` + `voice`.
+Cổng Text-to-Speech **tương thích OpenAI, đa engine**. Mỗi engine đăng ký theo
+ngôn ngữ và tự xuất hiện trong `/v1/models` + `/v1/voices` khi asset đã cài:
+**VieNeu-TTS** (tiếng Việt, có clone) · **Kokoro-82M** (tiếng Anh, giọng preset) ·
+**VOICEVOX** (tiếng Nhật, giọng preset). VieNeu là backend **mặc định** cho các tên
+`model` kiểu OpenAI. Chọn ngôn ngữ bằng cách chọn `model` + `voice`.
 
-**Auth** — every `/v1/*` route needs `Authorization: Bearer <key>` (keys from the `API_KEYS` env var).
+**Xác thực** — mọi route `/v1/*` cần `Authorization: Bearer <key>` (key lấy từ biến môi trường `API_KEYS`).
 
-**OpenAI compatibility** — the stock `openai` SDK works unmodified: unknown `model`
-(e.g. `tts-1`) routes to the default backend and an unknown/`alloy`-style `voice`
-falls back to the first preset.
+**Tương thích OpenAI** — SDK `openai` gốc chạy không cần sửa: `model` lạ (vd `tts-1`)
+route về backend mặc định, `voice` lạ/kiểu `alloy` rơi về giọng preset đầu tiên.
 
-**Tuning knob** — `style` (the only one exposed) is an OpenAI extension; pass it
-via the SDK's `extra_body`. Sampling params are left to VieNeu's internal defaults.
+**Knob tinh chỉnh** — `style` (knob duy nhất được phơi ra) là phần mở rộng của OpenAI;
+gửi qua `extra_body` của SDK. Tham số sampling để VieNeu tự lo theo mặc định nội bộ.
 
-Errors use the OpenAI envelope: `{"error": {"message", "type", "code"}}`.
+Lỗi trả về theo envelope OpenAI: `{"error": {"message", "type", "code"}}`.
 """.strip()
 
 TAGS_METADATA = [
-    {"name": "speech", "description": "Text-to-speech synthesis."},
-    {"name": "transcriptions", "description": "Speech-to-text with subtitle timing (SRT/VTT/verbose_json)."},
-    {"name": "voices", "description": "Preset + cloned voice discovery and management (OpenAI custom-voice API)."},
-    {"name": "models", "description": "Registered backends."},
-    {"name": "system", "description": "Liveness."},
+    {"name": "speech", "description": "Tổng hợp giọng nói (text-to-speech)."},
+    {"name": "transcriptions", "description": "Nhận dạng giọng nói + mốc thời gian phụ đề (SRT/VTT/verbose_json)."},
+    {"name": "voices", "description": "Khám phá & quản lý giọng preset + giọng clone (API custom-voice của OpenAI)."},
+    {"name": "models", "description": "Các backend đã đăng ký."},
+    {"name": "system", "description": "Kiểm tra sống (liveness)."},
 ]
 
 
@@ -166,7 +165,7 @@ def create_app() -> FastAPI:
             content={"error": {"message": "Internal server error.", "type": "server_error", "code": "internal_error"}},
         )
 
-    @app.get("/health", tags=["system"], summary="Liveness probe")
+    @app.get("/health", tags=["system"], summary="Kiểm tra sống")
     async def health() -> dict:
         return {"status": "ok", "models": registry.models()}
 

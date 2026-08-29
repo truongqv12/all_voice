@@ -61,26 +61,26 @@ def _cloning_backend(model: str | None = None) -> VoiceBackend:
     raise _error(400, "No voice-cloning backend is available.", "cloning_unsupported")
 
 
-@router.post("/audio/voices", response_model=CustomVoice, tags=["voices"], summary="Create a cloned voice")
+@router.post("/audio/voices", response_model=CustomVoice, tags=["voices"], summary="Tạo giọng clone")
 async def create_voice(
     name: str = Form(...),
     audio_sample: UploadFile = File(...),
     id: str | None = Form(
         default=None,
-        description="Optional custom voice ID (e.g. `voice_mc_nam`). If omitted, a random `voice_...` ID is generated.",
+        description="ID giọng tùy chọn (vd `voice_mc_nam`). Bỏ trống → tự sinh ID ngẫu nhiên `voice_...`.",
     ),
     consent: str | None = Form(default=None),  # optional (OpenAI requires it)
     denoise: bool = Form(
         default=True,
-        description="Denoise the reference. Leave on for noisy clips; turn OFF for already-clean samples to preserve the original timbre (better clone fidelity).",
+        description="Khử nhiễu mẫu tham chiếu. Bật cho mẫu ồn; TẮT cho mẫu đã sạch để giữ nguyên chất giọng (clone giống hơn).",
     ),
     model: str | None = Form(
         default=None,
-        description="Backend to enrol into (e.g. `vieneu`). Omit to use the default cloning backend. Must be a registered backend that supports cloning.",
+        description="Backend để enrol clone (vd `vieneu`). Bỏ trống → dùng backend clone mặc định. Phải là backend đã đăng ký và hỗ trợ clone.",
     ),
     ref_text: str | None = Form(
         default=None,
-        description="Transcript of the reference audio. Required by clone-first engines (e.g. F5-TTS); VieNeu ignores it.",
+        description="Transcript của audio tham chiếu. Bắt buộc với engine clone-first (vd F5-TTS); VieNeu bỏ qua.",
     ),
     _key: str = Depends(require_api_key),
 ) -> CustomVoice:
@@ -123,7 +123,7 @@ async def create_voice(
     return CustomVoice(id=record.id, created_at=record.created_at, name=record.name)
 
 
-@router.get("/audio/voices", response_model=CustomVoiceList, tags=["voices"], summary="List cloned voices")
+@router.get("/audio/voices", response_model=CustomVoiceList, tags=["voices"], summary="Liệt kê giọng clone")
 async def list_custom_voices(_key: str = Depends(require_api_key)) -> CustomVoiceList:
     data = [
         CustomVoice(id=r.id, created_at=r.created_at, name=r.name) for r in voice_store.list()
@@ -131,7 +131,7 @@ async def list_custom_voices(_key: str = Depends(require_api_key)) -> CustomVoic
     return CustomVoiceList(data=data)
 
 
-@router.get("/audio/voices/{voice_id}", response_model=CustomVoice, tags=["voices"], summary="Retrieve a cloned voice")
+@router.get("/audio/voices/{voice_id}", response_model=CustomVoice, tags=["voices"], summary="Lấy một giọng clone")
 async def get_custom_voice(voice_id: str, _key: str = Depends(require_api_key)) -> CustomVoice:
     record = voice_store.get(voice_id)
     if record is None:
@@ -139,7 +139,7 @@ async def get_custom_voice(voice_id: str, _key: str = Depends(require_api_key)) 
     return CustomVoice(id=record.id, created_at=record.created_at, name=record.name)
 
 
-@router.delete("/audio/voices/{voice_id}", response_model=DeletedVoice, tags=["voices"], summary="Delete a cloned voice")
+@router.delete("/audio/voices/{voice_id}", response_model=DeletedVoice, tags=["voices"], summary="Xóa một giọng clone")
 async def delete_custom_voice(voice_id: str, _key: str = Depends(require_api_key)) -> DeletedVoice:
     record = voice_store.get(voice_id)
     if record is not None:
@@ -160,7 +160,7 @@ async def delete_custom_voice(voice_id: str, _key: str = Depends(require_api_key
     raise _error(404, f"Voice '{voice_id}' not found.", "voice_not_found")
 
 
-@router.post("/audio/voice_consents", response_model=VoiceConsent, tags=["voices"], summary="Issue a voice consent id")
+@router.post("/audio/voice_consents", response_model=VoiceConsent, tags=["voices"], summary="Cấp consent id cho giọng")
 async def create_voice_consent(
     language: str = Form(...),
     name: str = Form(...),

@@ -11,42 +11,42 @@ ResponseFormat = Literal["mp3", "opus", "aac", "flac", "wav", "pcm"]
 
 
 class SpeechRequest(BaseModel):
-    """Body of POST /v1/audio/speech (mirrors OpenAI's schema).
+    """Body của POST /v1/audio/speech (khớp schema OpenAI).
 
-    Unknown `model` falls back to the default backend and an unknown/`alloy`-style
-    `voice` falls back to the backend's first preset, so the stock OpenAI SDK works
-    unmodified. `style` (the one tuning knob kept) is an OpenAI extension: pass it
-    via the SDK's `extra_body`. All sampling knobs (temperature/top_k/top_p/…) are
-    intentionally not exposed — VieNeu manages them internally.
+    `model` lạ rơi về backend mặc định, `voice` lạ/kiểu `alloy` rơi về giọng preset
+    đầu tiên của backend, nên SDK OpenAI gốc chạy không cần sửa. `style` (knob tinh
+    chỉnh duy nhất giữ lại) là phần mở rộng của OpenAI: gửi qua `extra_body` của SDK.
+    Mọi knob sampling (temperature/top_k/top_p/…) cố ý không phơi ra — VieNeu tự lo
+    nội bộ.
     """
 
     model: str = Field(
-        description="Backend name, e.g. `vieneu`. Unknown names (`tts-1`) route to the default backend.",
+        description="Tên backend, vd `vieneu` / `kokoro` / `voicevox`. Tên lạ (`tts-1`) route về backend mặc định.",
         examples=["vieneu"],
     )
     input: str = Field(
         min_length=1, max_length=4096,
-        description="Text to speak (≤ 4096 chars). Punctuation drives pauses; embed cues like `[cười]`; Vietnamese⇄English code-switching works inline.",
+        description="Văn bản cần đọc (≤ 4096 ký tự). Dấu câu tạo ngắt nghỉ; nhúng cue như `[cười]`; chuyển ngữ Việt⇄Anh chạy inline.",
         examples=["Xin chào, đây là all-voice."],
     )
     # OpenAI accepts a voice name string OR a custom-voice object {"id": "..."}.
     voice: str | dict[str, Any] = Field(
-        description="Preset name (e.g. `Trúc Ly`), a cloned-voice id (`voice_...`), or an object `{\"id\": \"voice_...\"}`.",
+        description="Tên preset (vd `Trúc Ly`), id giọng clone (`voice_...`), hoặc object `{\"id\": \"voice_...\"}`.",
         examples=["Trúc Ly"],
     )
     response_format: ResponseFormat = Field(
-        default="mp3", description="Output container: mp3/opus/aac/flac/wav/pcm.",
+        default="mp3", description="Định dạng đầu ra: mp3/opus/aac/flac/wav/pcm.",
     )
     # Accepted for OpenAI compatibility. Forwarded to the backend but only
     # honoured if that backend has native speed control; VieNeu does not, so it
     # is a no-op there (the gateway no longer time-stretches — it degraded speech).
     speed: float = Field(
         default=1.0, ge=0.25, le=4.0,
-        description="Playback speed 0.25–4.0 (OpenAI-compatible). Honoured only by backends with native speed control; VieNeu ignores it.",
+        description="Tốc độ đọc 0.25–4.0 (tương thích OpenAI). Chỉ backend có điều chỉnh tốc độ gốc mới áp dụng; VieNeu bỏ qua.",
     )
     # Accepted for OpenAI compatibility; not applied by every backend yet.
     instructions: str | None = Field(
-        default=None, description="Accepted for OpenAI compatibility; not applied by every backend yet.",
+        default=None, description="Chấp nhận để tương thích OpenAI; chưa phải backend nào cũng áp dụng.",
     )
 
     # --- Backend tuning knobs (OpenAI extension; pass via `extra_body`). ---
@@ -55,13 +55,13 @@ class SpeechRequest(BaseModel):
     # params stay backend-internal.
     style: str | None = Field(
         default=None,
-        description="Reading style; valid values are backend-defined (VieNeu: tu_nhien / tin_tuc / doc_truyen). The backend rejects an unknown value with 400.",
+        description="Kiểu đọc; giá trị hợp lệ do backend quy định (VieNeu: tu_nhien / tin_tuc / doc_truyen). Backend từ chối giá trị lạ bằng 400.",
     )
     # Free-form bag for engine-specific params (e.g. a future VoiceVox
     # `speedScale`) so a new engine's knobs pass through without a schema change.
     extra: dict[str, Any] | None = Field(
         default=None,
-        description="OpenAI extension: backend-specific parameters (via extra_body). A backend ignores keys it does not understand.",
+        description="Phần mở rộng OpenAI: tham số riêng của backend (qua extra_body). Backend bỏ qua khóa nó không hiểu.",
     )
 
     model_config = {
@@ -129,7 +129,7 @@ class ModelList(BaseModel):
 
 
 class CustomVoice(BaseModel):
-    """OpenAI custom-voice object (POST /v1/audio/voices response)."""
+    """Object custom-voice của OpenAI (response của POST /v1/audio/voices)."""
 
     id: str
     created_at: int
@@ -149,7 +149,7 @@ class DeletedVoice(BaseModel):
 
 
 class VoiceConsent(BaseModel):
-    """OpenAI voice-consent object (POST /v1/audio/voice_consents response)."""
+    """Object voice-consent của OpenAI (response của POST /v1/audio/voice_consents)."""
 
     id: str
     created_at: int
@@ -162,38 +162,38 @@ TranscriptionResponseFormat = Literal["json", "text", "srt", "vtt", "verbose_jso
 
 
 class TranscriptionSegment(BaseModel):
-    """One timed segment (≈ a sentence) in an OpenAI `verbose_json` transcription."""
+    """Một segment có mốc thời gian (≈ một câu) trong transcription `verbose_json` của OpenAI."""
 
-    id: int = Field(description="Segment index, starting at 0.")
-    seek: int = Field(description="Decoder seek offset (frames) — internal Whisper bookkeeping.")
-    start: float = Field(description="Segment start time, seconds.")
-    end: float = Field(description="Segment end time, seconds.")
-    text: str = Field(description="Transcribed text of this segment.")
-    tokens: list[int] = Field(default_factory=list, description="Whisper token ids for the segment text.")
-    temperature: float = Field(description="Sampling temperature used for this segment.")
-    avg_logprob: float = Field(description="Average token log-probability (higher ≈ more confident).")
-    compression_ratio: float = Field(description="gzip compression ratio; abnormally high ⇒ likely hallucinated repetition.")
-    no_speech_prob: float = Field(description="Probability the segment is silence/non-speech (0–1).")
+    id: int = Field(description="Chỉ số segment, bắt đầu từ 0.")
+    seek: int = Field(description="Offset seek của decoder (frame) — sổ sách nội bộ của Whisper.")
+    start: float = Field(description="Thời điểm bắt đầu segment, giây.")
+    end: float = Field(description="Thời điểm kết thúc segment, giây.")
+    text: str = Field(description="Văn bản nhận dạng của segment này.")
+    tokens: list[int] = Field(default_factory=list, description="Token id Whisper của văn bản segment.")
+    temperature: float = Field(description="Temperature sampling dùng cho segment này.")
+    avg_logprob: float = Field(description="Log-probability trung bình mỗi token (cao ≈ tự tin hơn).")
+    compression_ratio: float = Field(description="Tỷ lệ nén gzip; cao bất thường ⇒ có thể là lặp ảo (hallucination).")
+    no_speech_prob: float = Field(description="Xác suất segment là im lặng/không phải tiếng nói (0–1).")
 
 
 class TranscriptionWord(BaseModel):
-    """One word with timing (present only when `timestamp_granularities[]=word`)."""
+    """Một từ kèm mốc thời gian (chỉ có khi `timestamp_granularities[]=word`)."""
 
-    word: str = Field(description="The word text.")
-    start: float = Field(description="Word start time, seconds.")
-    end: float = Field(description="Word end time, seconds.")
+    word: str = Field(description="Văn bản của từ.")
+    start: float = Field(description="Thời điểm bắt đầu từ, giây.")
+    end: float = Field(description="Thời điểm kết thúc từ, giây.")
 
 
 class TranscriptionVerbose(BaseModel):
-    """`verbose_json` response of POST /v1/audio/transcriptions — full transcript with timing."""
+    """Response `verbose_json` của POST /v1/audio/transcriptions — transcript đầy đủ kèm mốc thời gian."""
 
-    task: str = Field(default="transcribe", description="Always `transcribe` (this gateway does not translate).")
-    language: str = Field(description="Detected (or supplied) language code, e.g. `vi`.")
-    duration: float = Field(description="Audio duration, seconds.")
-    text: str = Field(description="Full transcript (all segments joined).")
-    segments: list[TranscriptionSegment] = Field(description="Per-segment (sentence-level) timing.")
+    task: str = Field(default="transcribe", description="Luôn là `transcribe` (cổng này không dịch).")
+    language: str = Field(description="Mã ngôn ngữ nhận diện (hoặc do bạn cung cấp), vd `vi`.")
+    duration: float = Field(description="Độ dài audio, giây.")
+    text: str = Field(description="Transcript đầy đủ (gộp mọi segment).")
+    segments: list[TranscriptionSegment] = Field(description="Mốc thời gian theo từng segment (cấp câu).")
     words: list[TranscriptionWord] | None = Field(
-        default=None, description="Per-word timing; present only when `timestamp_granularities[]=word`.",
+        default=None, description="Mốc thời gian theo từng từ; chỉ có khi `timestamp_granularities[]=word`.",
     )
 
     model_config = {
@@ -221,9 +221,9 @@ class TranscriptionVerbose(BaseModel):
 
 
 class Transcription(BaseModel):
-    """Default `json` response: just the transcript text."""
+    """Response `json` mặc định: chỉ có văn bản transcript."""
 
-    text: str = Field(description="Full transcript.", examples=["Xin chào, đây là all-voice."])
+    text: str = Field(description="Transcript đầy đủ.", examples=["Xin chào, đây là all-voice."])
 
 
 class ErrorDetail(BaseModel):
@@ -234,6 +234,6 @@ class ErrorDetail(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """OpenAI-style error envelope: {"error": {...}}."""
+    """Envelope lỗi kiểu OpenAI: {"error": {...}}."""
 
     error: ErrorDetail

@@ -14,7 +14,7 @@ bearer_auth = HTTPBearer(
     auto_error=False,
     scheme_name="BearerAuth",
     bearerFormat="API key",
-    description="API key configured in the API_KEYS environment variable.",
+    description="API key cấu hình trong biến môi trường API_KEYS.",
 )
 
 

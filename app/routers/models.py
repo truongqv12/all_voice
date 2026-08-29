@@ -14,7 +14,7 @@ router = APIRouter()
 _CREATED = 1723334400
 
 
-@router.get("/models", response_model=ModelList, tags=["models"], summary="List backends")
+@router.get("/models", response_model=ModelList, tags=["models"], summary="Liệt kê backend")
 async def list_models(_key: str = Depends(require_api_key)) -> ModelList:
     data = [ModelInfo(id=name, created=_CREATED) for name in registry.models()]
     return ModelList(data=data)

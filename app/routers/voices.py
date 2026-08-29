@@ -13,10 +13,10 @@ from ..schemas import VoiceInfo, VoiceList
 router = APIRouter()
 
 
-@router.get("/voices", response_model=VoiceList, tags=["voices"], summary="List all voices (preset + cloned)")
+@router.get("/voices", response_model=VoiceList, tags=["voices"], summary="Liệt kê tất cả giọng (preset + clone)")
 async def list_voices(
-    model: str | None = Query(None, description="Only voices of this backend (e.g. `vieneu`)."),
-    language: str | None = Query(None, description="Only voices in this language (e.g. `vi`, `ja`, `en`)."),
+    model: str | None = Query(None, description="Chỉ giọng của backend này (vd `vieneu`, `kokoro`, `voicevox`)."),
+    language: str | None = Query(None, description="Chỉ giọng theo ngôn ngữ này (vd `vi`, `en`, `ja`)."),
     _key: str = Depends(require_api_key),
 ) -> VoiceList:
     # Additive filters: no params -> every voice, as before. An unmatched filter

@@ -25,11 +25,11 @@ _BINARY_AUDIO_RESPONSE = {"schema": {"type": "string", "format": "binary"}}
 @router.post(
     "/audio/speech",
     tags=["speech"],
-    summary="Create speech",
+    summary="Tạo giọng nói",
     response_class=Response,
     responses={
         200: {
-            "description": "Raw audio bytes in the requested `response_format`.",
+            "description": "Bytes audio thô theo `response_format` yêu cầu.",
             "content": {
                 "audio/mpeg": _BINARY_AUDIO_RESPONSE,
                 "audio/ogg": _BINARY_AUDIO_RESPONSE,
@@ -39,9 +39,9 @@ _BINARY_AUDIO_RESPONSE = {"schema": {"type": "string", "format": "binary"}}
                 "audio/pcm": _BINARY_AUDIO_RESPONSE,
             },
         },
-        400: {"description": "Invalid request (input too long, bad parameter)."},
-        401: {"description": "Missing or invalid API key."},
-        404: {"description": "Model not found."},
+        400: {"description": "Yêu cầu không hợp lệ (input quá dài, tham số sai)."},
+        401: {"description": "Thiếu hoặc sai API key."},
+        404: {"description": "Không tìm thấy model."},
     },
 )
 async def create_speech(req: SpeechRequest, _key: str = Depends(require_api_key)) -> Response:

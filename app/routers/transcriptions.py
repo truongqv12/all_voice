@@ -45,54 +45,54 @@ def _error(status_code: int, message: str, code: str) -> HTTPException:
 @router.post(
     "/audio/transcriptions",
     tags=["transcriptions"],
-    summary="Create transcription",
+    summary="Tạo bản ghi (transcription)",
     responses={
         200: {
             "model": TranscriptionVerbose,
             "description": (
-                "Transcript in the requested `response_format`: `json` -> `{\"text\": ...}`; "
-                "`verbose_json` -> full segment/word timing (schema shown); "
-                "`text`/`srt`/`vtt` -> plain text."
+                "Transcript theo `response_format` yêu cầu: `json` -> `{\"text\": ...}`; "
+                "`verbose_json` -> mốc thời gian đầy đủ theo segment/từ (xem schema); "
+                "`text`/`srt`/`vtt` -> văn bản thuần."
             ),
         },
-        400: {"description": "Invalid request (empty/undecodable file, too large, bad parameter)."},
-        401: {"description": "Missing or invalid API key."},
-        503: {"description": "ASR engine not installed (`uv sync --extra asr`)."},
+        400: {"description": "Yêu cầu không hợp lệ (file rỗng/không giải mã được, quá lớn, tham số sai)."},
+        401: {"description": "Thiếu hoặc sai API key."},
+        503: {"description": "Chưa cài engine ASR (`uv sync --extra asr`)."},
     },
 )
 async def create_transcription(
     file: UploadFile = File(
         ...,
-        description="Audio file to transcribe (mp3/wav/m4a/ogg/flac/webm…, ≤ 25 MiB). Decoded via ffmpeg/av.",
+        description="File audio cần nhận dạng (mp3/wav/m4a/ogg/flac/webm…, ≤ 25 MiB). Giải mã qua ffmpeg/av.",
     ),
     # Accepted for OpenAI compatibility; a single configured engine answers every
     # model name (logged, not routed).
     model: str = Form(
         "whisper-1",
-        description="Accepted for OpenAI compatibility. Any name works — the configured engine (env `ASR_MODEL`, default `small`) always answers.",
+        description="Chấp nhận để tương thích OpenAI. Tên nào cũng được — engine đã cấu hình (env `ASR_MODEL`, mặc định `small`) luôn trả lời.",
     ),
     language: str | None = Form(
-        None, description="ISO-639-1 hint (e.g. `vi`) to skip auto-detection. Omit to auto-detect.",
+        None, description="Gợi ý ISO-639-1 (vd `vi`) để bỏ qua auto-detect. Bỏ trống = tự nhận diện.",
     ),
     response_format: TranscriptionResponseFormat = Form(
         "json",
         description=(
-            "Output shape: `json` → `{\"text\": ...}` (default) · `text` → raw transcript · "
-            "`srt`/`vtt` → subtitle file (segment timing) · `verbose_json` → full segment (+word) timing."
+            "Định dạng đầu ra: `json` → `{\"text\": ...}` (mặc định) · `text` → transcript thô · "
+            "`srt`/`vtt` → file phụ đề (mốc theo segment) · `verbose_json` → mốc đầy đủ theo segment (+từ)."
         ),
     ),
     prompt: str | None = Form(
         None,
-        description="Optional text to bias decoding toward specific terms/spelling (maps to Whisper `initial_prompt`).",
+        description="Văn bản tùy chọn để định hướng cách giải mã theo thuật ngữ/cách viết cụ thể (map sang `initial_prompt` của Whisper).",
     ),
     temperature: float = Form(
         0.0, ge=0.0, le=1.0,
-        description="Decoding temperature 0.0–1.0. Keep 0.0 for the most deterministic transcript.",
+        description="Temperature giải mã 0.0–1.0. Giữ 0.0 để transcript tất định nhất.",
     ),
     timestamp_granularities: list[str] = Form(
         [],
         alias="timestamp_granularities[]",
-        description="Add `word` (with `response_format=verbose_json`) to include a top-level `words[]` array with per-word timing for karaoke. Segment timing is always included.",
+        description="Thêm `word` (với `response_format=verbose_json`) để có mảng `words[]` ở cấp cao nhất với mốc từng từ (karaoke). Mốc theo segment luôn có sẵn.",
     ),
     # OpenAI SDKs send the key with `[]`; accept the bare key too for clients that
     # omit the brackets. (FastAPI can't hide a Form field from the multipart body
@@ -100,21 +100,20 @@ async def create_transcription(
     timestamp_granularities_bare: list[str] = Form(
         [],
         alias="timestamp_granularities",
-        description="Compatibility alias for `timestamp_granularities[]` (clients that omit the brackets). Use `timestamp_granularities[]`.",
+        description="Alias tương thích cho `timestamp_granularities[]` (client bỏ dấu ngoặc). Nên dùng `timestamp_granularities[]`.",
     ),
     _key: str = Depends(require_api_key),
 ) -> Response:
-    """Transcribe speech to text with timing — OpenAI-compatible.
+    """Nhận dạng giọng nói thành văn bản kèm mốc thời gian — tương thích OpenAI.
 
-    Send an audio file as multipart/form-data and get back the transcript in the
-    requested `response_format`: plain `text`/`json`, ready-to-use `srt`/`vtt`
-    subtitles (sentence timing), or `verbose_json` with per-segment (and optional
-    per-word) timestamps. Recognition only — no translation.
+    Gửi file audio dạng multipart/form-data và nhận lại transcript theo
+    `response_format` yêu cầu: `text`/`json` thuần, phụ đề `srt`/`vtt` dùng ngay
+    (mốc theo câu), hoặc `verbose_json` với mốc theo từng segment (và tùy chọn
+    từng từ). Chỉ nhận dạng — không dịch.
 
-    Callable unmodified via the OpenAI SDK's `client.audio.transcriptions.create(...)`.
-    Requires the `asr` extra (`uv sync --extra asr`); without it the endpoint
-    returns **503**. The engine loads its model (env `ASR_MODEL`, default `small`)
-    lazily on the first request.
+    Gọi được không cần sửa qua SDK OpenAI `client.audio.transcriptions.create(...)`.
+    Cần extra `asr` (`uv sync --extra asr`); thiếu thì endpoint trả **503**. Engine
+    nạp model (env `ASR_MODEL`, mặc định `small`) lazy ở request đầu tiên.
     """
     data = await file.read()
     if not data:
