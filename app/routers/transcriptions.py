@@ -61,19 +61,61 @@ def _error(status_code: int, message: str, code: str) -> HTTPException:
     },
 )
 async def create_transcription(
-    file: UploadFile = File(..., description="Audio file to transcribe."),
+    file: UploadFile = File(
+        ...,
+        description="Audio file to transcribe (mp3/wav/m4a/ogg/flac/webm…, ≤ 25 MiB). Decoded via ffmpeg/av.",
+    ),
     # Accepted for OpenAI compatibility; a single configured engine answers every
     # model name (logged, not routed).
-    model: str = Form("whisper-1"),
-    language: str | None = Form(None, description="ISO-639-1 hint (e.g. `vi`); auto-detected if omitted."),
-    response_format: TranscriptionResponseFormat = Form("json"),
-    prompt: str | None = Form(None, description="Optional text to bias decoding (maps to initial_prompt)."),
-    temperature: float = Form(0.0, ge=0.0, le=1.0),
-    # OpenAI sends the key with brackets; accept the bare key too for safety.
-    timestamp_granularities: list[str] = Form([], alias="timestamp_granularities[]"),
-    timestamp_granularities_bare: list[str] = Form([], alias="timestamp_granularities"),
+    model: str = Form(
+        "whisper-1",
+        description="Accepted for OpenAI compatibility. Any name works — the configured engine (env `ASR_MODEL`, default `small`) always answers.",
+    ),
+    language: str | None = Form(
+        None, description="ISO-639-1 hint (e.g. `vi`) to skip auto-detection. Omit to auto-detect.",
+    ),
+    response_format: TranscriptionResponseFormat = Form(
+        "json",
+        description=(
+            "Output shape: `json` → `{\"text\": ...}` (default) · `text` → raw transcript · "
+            "`srt`/`vtt` → subtitle file (segment timing) · `verbose_json` → full segment (+word) timing."
+        ),
+    ),
+    prompt: str | None = Form(
+        None,
+        description="Optional text to bias decoding toward specific terms/spelling (maps to Whisper `initial_prompt`).",
+    ),
+    temperature: float = Form(
+        0.0, ge=0.0, le=1.0,
+        description="Decoding temperature 0.0–1.0. Keep 0.0 for the most deterministic transcript.",
+    ),
+    timestamp_granularities: list[str] = Form(
+        [],
+        alias="timestamp_granularities[]",
+        description="Add `word` (with `response_format=verbose_json`) to include a top-level `words[]` array with per-word timing for karaoke. Segment timing is always included.",
+    ),
+    # OpenAI SDKs send the key with `[]`; accept the bare key too for clients that
+    # omit the brackets. (FastAPI can't hide a Form field from the multipart body
+    # schema, so it's documented as an alias rather than hidden.)
+    timestamp_granularities_bare: list[str] = Form(
+        [],
+        alias="timestamp_granularities",
+        description="Compatibility alias for `timestamp_granularities[]` (clients that omit the brackets). Use `timestamp_granularities[]`.",
+    ),
     _key: str = Depends(require_api_key),
 ) -> Response:
+    """Transcribe speech to text with timing — OpenAI-compatible.
+
+    Send an audio file as multipart/form-data and get back the transcript in the
+    requested `response_format`: plain `text`/`json`, ready-to-use `srt`/`vtt`
+    subtitles (sentence timing), or `verbose_json` with per-segment (and optional
+    per-word) timestamps. Recognition only — no translation.
+
+    Callable unmodified via the OpenAI SDK's `client.audio.transcriptions.create(...)`.
+    Requires the `asr` extra (`uv sync --extra asr`); without it the endpoint
+    returns **503**. The engine loads its model (env `ASR_MODEL`, default `small`)
+    lazily on the first request.
+    """
     data = await file.read()
     if not data:
         raise _error(400, "file is empty.", "invalid_audio_file")

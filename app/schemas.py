@@ -147,43 +147,68 @@ TranscriptionResponseFormat = Literal["json", "text", "srt", "vtt", "verbose_jso
 
 
 class TranscriptionSegment(BaseModel):
-    """One timed segment in an OpenAI `verbose_json` transcription."""
+    """One timed segment (≈ a sentence) in an OpenAI `verbose_json` transcription."""
 
-    id: int
-    seek: int
-    start: float
-    end: float
-    text: str
-    tokens: list[int] = Field(default_factory=list)
-    temperature: float
-    avg_logprob: float
-    compression_ratio: float
-    no_speech_prob: float
+    id: int = Field(description="Segment index, starting at 0.")
+    seek: int = Field(description="Decoder seek offset (frames) — internal Whisper bookkeeping.")
+    start: float = Field(description="Segment start time, seconds.")
+    end: float = Field(description="Segment end time, seconds.")
+    text: str = Field(description="Transcribed text of this segment.")
+    tokens: list[int] = Field(default_factory=list, description="Whisper token ids for the segment text.")
+    temperature: float = Field(description="Sampling temperature used for this segment.")
+    avg_logprob: float = Field(description="Average token log-probability (higher ≈ more confident).")
+    compression_ratio: float = Field(description="gzip compression ratio; abnormally high ⇒ likely hallucinated repetition.")
+    no_speech_prob: float = Field(description="Probability the segment is silence/non-speech (0–1).")
 
 
 class TranscriptionWord(BaseModel):
-    """One word with timing (present when `timestamp_granularities[]=word`)."""
+    """One word with timing (present only when `timestamp_granularities[]=word`)."""
 
-    word: str
-    start: float
-    end: float
+    word: str = Field(description="The word text.")
+    start: float = Field(description="Word start time, seconds.")
+    end: float = Field(description="Word end time, seconds.")
 
 
 class TranscriptionVerbose(BaseModel):
-    """OpenAI `verbose_json` response (POST /v1/audio/transcriptions)."""
+    """`verbose_json` response of POST /v1/audio/transcriptions — full transcript with timing."""
 
-    task: str = "transcribe"
-    language: str
-    duration: float
-    text: str
-    segments: list[TranscriptionSegment]
-    words: list[TranscriptionWord] | None = None
+    task: str = Field(default="transcribe", description="Always `transcribe` (this gateway does not translate).")
+    language: str = Field(description="Detected (or supplied) language code, e.g. `vi`.")
+    duration: float = Field(description="Audio duration, seconds.")
+    text: str = Field(description="Full transcript (all segments joined).")
+    segments: list[TranscriptionSegment] = Field(description="Per-segment (sentence-level) timing.")
+    words: list[TranscriptionWord] | None = Field(
+        default=None, description="Per-word timing; present only when `timestamp_granularities[]=word`.",
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "task": "transcribe",
+                    "language": "vi",
+                    "duration": 3.92,
+                    "text": "Xin chào, đây là all-voice.",
+                    "segments": [
+                        {
+                            "id": 0, "seek": 0, "start": 0.0, "end": 3.92,
+                            "text": "Xin chào, đây là all-voice.",
+                            "tokens": [50364, 1234, 5678],
+                            "temperature": 0.0, "avg_logprob": -0.21,
+                            "compression_ratio": 1.1, "no_speech_prob": 0.01,
+                        }
+                    ],
+                    "words": None,
+                }
+            ]
+        }
+    }
 
 
 class Transcription(BaseModel):
-    """OpenAI default `json` response: just the transcript text."""
+    """Default `json` response: just the transcript text."""
 
-    text: str
+    text: str = Field(description="Full transcript.", examples=["Xin chào, đây là all-voice."])
 
 
 class ErrorDetail(BaseModel):
