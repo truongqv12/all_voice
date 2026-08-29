@@ -2,7 +2,7 @@
 
 # all-voice
 
-**API Text-to-Speech tương thích OpenAI, đa backend — backend đầu tiên: VieNeu-TTS (tiếng Việt, ưu tiên CPU)**
+**API Text-to-Speech tương thích OpenAI, đa engine — VieNeu (Việt) · Kokoro (Anh) · VOICEVOX (Nhật), ưu tiên CPU**
 
 Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [Triển khai](docs/deployment.md)
 
@@ -79,6 +79,59 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 8123
 
 Tài liệu API tương tác (tự sinh): **`http://localhost:8123/docs`** (Swagger) ·
 `/redoc` · `/openapi.json`.
+
+## 🌐 Engines & ngôn ngữ
+
+Mỗi engine là **một adapter cắm-rút**, tự xuất hiện trong `/v1/models` &
+`/v1/voices` **khi asset của nó đã cài** — thiếu thì bỏ qua im lặng, app vẫn chạy
+(deploy VieNeu-only không bị ảnh hưởng). Ngôn ngữ là **thuộc tính của giọng**:
+chọn ngôn ngữ = chọn `model` + `voice`. Tất cả chạy **in-process, torch-free**
+(onnxruntime), sinh audio 24 kHz (VieNeu 48 kHz) — encoder lo mọi định dạng.
+
+| Ngôn ngữ | `model` | Engine | Clone | Cài |
+|---|---|---|---|---|
+| 🇻🇳 Việt | `vieneu` | [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) | ✅ (cần `--extra clone`) | mặc định |
+| 🇬🇧 Anh | `kokoro` | [Kokoro-82M v1.0](https://github.com/thewh1teagle/kokoro-onnx) — 28 giọng (20 US / 8 UK) | ❌ | `--extra en` + `espeak-ng` + `scripts/fetch-kokoro.sh` |
+| 🇯🇵 Nhật | `voicevox` | [VOICEVOX Core](https://github.com/VOICEVOX/voicevox_core) | ❌ | `--extra ja` + `scripts/fetch-voicevox.sh` |
+
+**Kokoro (English).** Cần system package `espeak-ng` cho G2P.
+
+```bash
+uv sync --extra en
+sudo apt-get install -y espeak-ng            # bắt buộc cho G2P tiếng Anh
+bash scripts/fetch-kokoro.sh                 # tải model int8 (~88 MB) + voices
+# KOKORO_PRECISION=fp16 bash scripts/fetch-kokoro.sh   # bản nặng hơn nếu cần
+```
+
+```bash
+curl -s http://localhost:8123/v1/audio/speech -H "Authorization: Bearer dev-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"kokoro","voice":"af_heart","input":"Hello world.","response_format":"mp3"}' -o en.mp3
+```
+
+**VOICEVOX (Japanese).** Wheel `voicevox_core` **không có trên PyPI** → script cài
+từ GitHub release rồi tải OpenJTalk dict + VVM (khớp đúng path config mặc định).
+
+```bash
+uv sync --extra ja
+bash scripts/fetch-voicevox.sh               # cài wheel + tải dict + VVM
+```
+
+```bash
+# voice = style_id; xem danh sách qua GET /v1/voices?language=ja
+curl -s http://localhost:8123/v1/audio/speech -H "Authorization: Bearer dev-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"voicevox","voice":"3","input":"こんにちは、世界。","response_format":"wav"}' -o ja.wav
+```
+
+> [!IMPORTANT]
+> **Credit VOICEVOX:** điều khoản yêu cầu **ghi công nhân vật** khi phát hành audio
+> (vd `VOICEVOX:ずんだもん`). Tên giọng ở `/v1/voices?language=ja` đã kèm sẵn chuỗi
+> credit này để bạn hiển thị lại.
+
+> [!NOTE]
+> Bật engine mà **chưa tải asset** thì backend tự bỏ qua (log 1 dòng) — không phá
+> startup. Tắt hẳn để tiết kiệm RAM: `ENABLE_KOKORO=false` / `ENABLE_VOICEVOX=false`.
 
 ## 🔌 API Endpoints
 
@@ -250,6 +303,14 @@ Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng
 **Speech-to-Text (extra `asr`):** `ASR_MODEL` (mặc định `small`; tiny/base/small/medium/large-v3
 hoặc repo CTranslate2) · `ASR_COMPUTE_TYPE` (`int8` cho CPU, `float16` cho CUDA). ASR
 **dùng chung `MAX_CONCURRENCY`** với TTS — cùng một ngân sách job CPU, tăng khi máy khỏe.
+
+**Kokoro / English (extra `en`):** `ENABLE_KOKORO` (mặc định `true`) · `KOKORO_MODEL_PATH`
+· `KOKORO_VOICES_PATH` · `KOKORO_DEFAULT_VOICE` (`af_heart`). **VOICEVOX / Japanese
+(extra `ja`):** `ENABLE_VOICEVOX` (mặc định `true`) · `VOICEVOX_DICT_DIR` ·
+`VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` (rỗng = dùng bản kèm) ·
+`VOICEVOX_SPEAKER_ALLOWLIST` (rỗng = mọi style). Nguồn mặc định: `app/config.py`.
+Bật flag mà thiếu asset → engine skip an toàn; đăng ký chỉ khi package **và** file
+model có mặt.
 
 ## 🧩 Thêm một Backend
 

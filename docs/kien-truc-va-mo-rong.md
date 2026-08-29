@@ -119,6 +119,15 @@ serialize bằng một khóa (lock) trong backend.
 | `VOICES_DIR` | `data/voices` | Nơi lưu mẫu giọng clone |
 | `ASR_MODEL` | `small` | Model faster-whisper (tiny/base/small/medium/large-v3 hoặc repo CT2) — xem mục 11 |
 | `ASR_COMPUTE_TYPE` | `int8` | Kiểu tính CTranslate2: `int8` (CPU) / `float16` (CUDA) |
+| `ENABLE_KOKORO` | `true` | Bật engine tiếng Anh Kokoro (đăng ký chỉ khi asset có — xem mục 12) |
+| `KOKORO_MODEL_PATH` | `models/kokoro/kokoro-v1.0.int8.onnx` | Đường dẫn model ONNX Kokoro |
+| `KOKORO_VOICES_PATH` | `models/kokoro/voices-v1.0.bin` | File voices Kokoro |
+| `KOKORO_DEFAULT_VOICE` | `af_heart` | Preset trả về khi route lenient (model OpenAI-generic) |
+| `ENABLE_VOICEVOX` | `true` | Bật engine tiếng Nhật VOICEVOX (đăng ký chỉ khi asset có — xem mục 12) |
+| `VOICEVOX_DICT_DIR` | `models/voicevox/open_jtalk_dic_utf_8-1.11` | Thư mục OpenJTalk dict |
+| `VOICEVOX_VVM_DIR` | `models/voicevox/vvms` | Thư mục chứa file VVM (voice model) |
+| `VOICEVOX_ONNXRUNTIME` | *(bỏ trống)* | Path onnxruntime riêng; rỗng = dùng bản `voicevox_core` kèm |
+| `VOICEVOX_SPEAKER_ALLOWLIST` | *(bỏ trống)* | Lọc `style_id`/`uuid:style_id` được expose; rỗng = tất cả |
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 
 **Knob tinh chỉnh** (gửi qua `extra_body` của OpenAI SDK; client thường không bị
@@ -254,9 +263,10 @@ Xong. Tự động có mặt trong `GET /v1/models` và `GET /v1/voices`; client
 - Encoder tự lo mọi định dạng — adapter **chỉ cần trả PCM float32 + sample_rate**
   (sample_rate bao nhiêu cũng được, encoder xử lý; riêng `opus` cần 48/24/16/12/8kHz).
 
-> **Trạng thái multi-engine:** lõi đã **mở seam sẵn sàng** cho engine đa ngôn ngữ,
-> nhưng **VoiceVox (JA)** và **F5-TTS (EN)** **chưa được tích hợp** — sẽ có plan
-> riêng cho từng adapter thật.
+> **Trạng thái multi-engine:** ngoài VieNeu (VN), đã tích hợp **Kokoro (EN)** và
+> **VOICEVOX (JA)** — xem **mục 12**. Cả hai là adapter in-process, không clone,
+> đăng ký có guard `is_available()`. Engine clone-first tiếng Anh (Chatterbox/F5)
+> để dành plan riêng khi có GPU.
 
 ```mermaid
 flowchart LR
@@ -355,3 +365,49 @@ WhisperX là nâng cấp tương lai, ngoài scope).
 **Model tải về:** `ASR_MODEL` (mặc định `small` ~0.5GB) tải ở request transcribe
 **đầu tiên**, cache chung `~/.cache/huggingface/hub` (mục 8). Đặt `ASR_MODEL=tiny`
 cho máy yếu/test.
+
+---
+
+## 12. Engine tiếng Anh (Kokoro) & tiếng Nhật (VOICEVOX)
+
+Hai engine preset **in-process, torch-free** (onnxruntime), **không clone**, sinh
+audio **24 kHz** (encoder đã sample-rate-agnostic nên không sửa). Chúng cắm qua
+đúng seam ở mục 7 — **không đụng lõi**. Đăng ký trong `_register_backends()` có
+**guard**: chỉ vào registry khi `flag bật` **và** `is_available(settings)` (package
+import được **và** file model/dict tồn tại). Thiếu → log 1 dòng, **không raise** →
+deploy VieNeu-only nguyên vẹn. Khác VieNeu, `is_available(settings)` nhận `settings`
+vì cần biết đường dẫn asset (VieNeu chỉ cần import được `vieneu`).
+
+| | Kokoro (EN) | VOICEVOX (JA) |
+|---|---|---|
+| File | `app/backends/kokoro_backend.py` | `app/backends/voicevox_backend.py` |
+| Runtime | `kokoro-onnx` (extra `en`) | `voicevox_core` (wheel từ GitHub release) |
+| Giọng | 28 preset (bảng `_EN_VOICES`, 20 US / 8 UK) | speaker×style đọc từ metadata VVM |
+| System dep | **`espeak-ng`** (G2P) | OpenJTalk dict (tải kèm) |
+| Asset | `scripts/fetch-kokoro.sh` | `scripts/fetch-voicevox.sh` |
+
+**Kokoro.** `kokoro.create(text, voice, speed, lang)` → PCM float32 24 kHz. Accent
+suy từ prefix voice: `b*` = `en-gb`, còn lại `en-us`. `voices-v1.0.bin` chứa nhiều
+ngôn ngữ nhưng adapter **chỉ expose 28 giọng English** (không auto-scan) để không
+rò giọng ngôn ngữ khác. Thiếu `espeak-ng` → synth ném `RuntimeError` hướng dẫn cài
+(không trả audio rỗng). `resolve_voice` override để miss-lenient rơi về
+`KOKORO_DEFAULT_VOICE` thay vì giọng đầu bảng.
+
+**VOICEVOX.** Init lazy 1 lần (`Onnxruntime` + `OpenJtalk` + `Synthesizer`).
+**Lazy per-VVM:** `list_voices()` đọc **metadata** VVM (rẻ, không nạp model để
+infer); chỉ `load_voice_model()` cho VVM chứa style được yêu cầu ở lần dùng đầu,
+cache trong `_loaded`. Nhờ đó **startup không phình RAM** trên deploy 1-worker.
+`voice` = `style_id` (hoặc `uuid:style_id`); `speed≠1.0` đi qua `audio_query` +
+`speed_scale` (vì `tts()` không nhận speed). `VOICEVOX_SPEAKER_ALLOWLIST` lọc style
+expose. **Credit** nhân vật nhúng sẵn trong `Voice.name` (chuỗi `VOICEVOX:<char>`)
+để lộ ở `/v1/voices` — nghĩa vụ ghi công khi phát hành audio.
+
+> **Fallback Docker HTTP (documented, chưa code):** nếu wheel `voicevox_core`
+> không cài được cho Python/OS hiện tại, chạy VOICEVOX ENGINE qua Docker
+> (`:50021`, `POST /audio_query` → `POST /synthesis`) và viết adapter biến thể
+> chọn bằng một `voicevox_mode`. Không đụng lõi — chỉ đổi đường trong adapter.
+
+**Test.** Unit (`-m "not synth"`) phủ `is_available` False, bảng 28 giọng,
+`resolve_voice`, decode WAV, parse style/allowlist — **không cần model**. Test sinh
+voice thật + round-trip TTS→ASR nằm dưới marker `synth`, **skip gọn** khi asset
+vắng (`tests/test_kokoro.py`, `tests/test_voicevox.py`, `tests/test_tts_asr_roundtrip.py`).

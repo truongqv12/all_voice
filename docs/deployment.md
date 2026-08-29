@@ -34,6 +34,27 @@ Model VieNeu (~313MB) tải tự động ở **request synth đầu tiên** về
 `DEFAULT_BACKEND` · `MAX_CONCURRENCY` · `VOICES_DIR` · `HOST` · `PORT` (mặc định 8123) ·
 `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
 
+Engine tuỳ chọn (bảng đầy đủ + mặc định: `app/config.py`, README mục "Engines"):
+`ENABLE_KOKORO` · `KOKORO_MODEL_PATH` · `KOKORO_VOICES_PATH` · `KOKORO_DEFAULT_VOICE` ·
+`ENABLE_VOICEVOX` · `VOICEVOX_DICT_DIR` · `VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` ·
+`VOICEVOX_SPEAKER_ALLOWLIST`.
+
+## Engine tiếng Anh (Kokoro) & Nhật (VOICEVOX)
+
+Tuỳ chọn, tách khỏi base install. Bật engine mà **chưa tải asset** thì backend tự
+bỏ qua (không phá startup); tắt hẳn bằng `ENABLE_KOKORO=false` / `ENABLE_VOICEVOX=false`.
+
+- **Tiếng Anh (Kokoro):** cần system package **`espeak-ng`** cho G2P —
+  `sudo apt-get install -y espeak-ng`. Rồi `uv sync --extra en` +
+  `bash scripts/fetch-kokoro.sh` (model int8 **~88 MB** + voices vào `models/kokoro/`).
+- **Tiếng Nhật (VOICEVOX):** `uv sync --extra ja` + `bash scripts/fetch-voicevox.sh`
+  (cài wheel `voicevox_core` từ GitHub release + tải OpenJTalk dict + VVM vào
+  `models/voicevox/`). **Credit:** ghi công nhân vật khi phát hành audio (xem README).
+- **RAM / lazy-load:** mỗi engine bật chỉ nạp model ở **request đầu** cho ngôn ngữ
+  đó; VOICEVOX nạp **từng VVM theo style** khi cần → startup không phình RAM. Vẫn
+  khuyến nghị **giữ 1 worker** (mỗi worker giữ bản model riêng). Đĩa: `models/` không
+  commit (đã `.gitignore`), tổng dung lượng tuỳ engine bật.
+
 ## Vận hành service (Linux)
 
 ```bash
