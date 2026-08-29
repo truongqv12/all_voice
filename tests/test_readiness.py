@@ -44,9 +44,14 @@ def test_baseline_voices_shape_and_language():
     assert len(data) > 0
     for v in data:
         assert {"id", "name", "model", "language", "styles"} <= v.keys()
-        # Only VieNeu is registered today; every voice is Vietnamese.
-        assert v["model"] == "vieneu"
-        assert v["language"] == "vi"
+        assert v["model"] and v["language"]
+        # VieNeu presets are Vietnamese. Optional engines (kokoro/voicevox) may
+        # also be registered when their assets are installed, so assert language
+        # per known model rather than pinning a single-engine baseline.
+        if v["model"] == "vieneu":
+            assert v["language"] == "vi"
+    # VieNeu is always registered (a base dependency).
+    assert any(v["model"] == "vieneu" and v["language"] == "vi" for v in data)
 
 
 @pytest.mark.synth
@@ -206,7 +211,7 @@ def test_clone_unknown_model_400():
         "/v1/audio/voices",
         headers=AUTH,
         files={"audio_sample": ("s.wav", SAMPLE, "audio/wav")},
-        data={"name": "Bad Model", "model": "voicevox"},
+        data={"name": "Bad Model", "model": "no-such-backend"},
     )
     assert created.status_code == 400
     assert created.json()["error"]["code"] == "model_not_found"
@@ -265,12 +270,18 @@ def test_voices_filter_by_language():
 
 
 def test_voices_filter_unknown_returns_empty():
-    r = client.get("/v1/voices?model=voicevox", headers=AUTH)
+    # A model that is never a registered backend yields an empty list, not error.
+    r = client.get("/v1/voices?model=no-such-backend", headers=AUTH)
     assert r.status_code == 200
     assert r.json()["data"] == []
 
 
 def test_voices_no_filter_unchanged():
+    # No filter returns at least every VieNeu voice (plus any optional engine's
+    # voices that happen to be registered).
     data = client.get("/v1/voices", headers=AUTH).json()["data"]
-    assert len(data) > 0
-    assert all(v["model"] == "vieneu" for v in data)
+    vieneu = client.get("/v1/voices?model=vieneu", headers=AUTH).json()["data"]
+    assert len(vieneu) > 0
+    ids = {v["id"] for v in data}
+    assert {v["id"] for v in vieneu} <= ids
+    assert len(data) >= len(vieneu)
