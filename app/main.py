@@ -28,6 +28,32 @@ def _register_backends() -> None:
         VieNeuBackend(device=settings.device),
         default=(settings.default_backend in ("vieneu", "")),
     )
+    # Optional preset engines: import locally so a missing `en`/`ja` extra never
+    # breaks startup. Register only when the flag is on AND the package + model
+    # assets are present; otherwise log one line and carry on (VieNeu-only deploy
+    # stays intact). Both are non-default — VieNeu keeps answering OpenAI-generic
+    # model names.
+    log = get_logger("startup")
+    if settings.enable_kokoro:
+        try:
+            from .backends.kokoro_backend import KokoroBackend
+
+            if KokoroBackend.is_available(settings):
+                registry.register(KokoroBackend(settings), default=False)
+            else:  # flag on but package/model missing -> one line, no raise
+                log.info("kokoro not registered: install `en` extra + run scripts/fetch-kokoro.sh")
+        except Exception as exc:  # unexpected import/construction error -> skip
+            log.warning("kokoro backend skipped: %s", exc)
+    if settings.enable_voicevox:
+        try:
+            from .backends.voicevox_backend import VoicevoxBackend
+
+            if VoicevoxBackend.is_available(settings):
+                registry.register(VoicevoxBackend(settings), default=False)
+            else:
+                log.info("voicevox not registered: install `ja` extra + run scripts/fetch-voicevox.sh")
+        except Exception as exc:
+            log.warning("voicevox backend skipped: %s", exc)
 
 
 def _reenrol_cloned_voices() -> None:
@@ -46,7 +72,11 @@ def _reenrol_cloned_voices() -> None:
 
 
 API_DESCRIPTION = """
-OpenAI-compatible, multi-backend Text-to-Speech gateway (first backend: **VieNeu-TTS**, Vietnamese).
+OpenAI-compatible, multi-backend Text-to-Speech gateway. Engines register by
+language and appear in `/v1/models` + `/v1/voices` as their assets are installed:
+**VieNeu-TTS** (Vietnamese, cloning) · **Kokoro-82M** (English presets) ·
+**VOICEVOX** (Japanese presets). VieNeu stays the default for OpenAI-generic model
+names. Pick a language by picking a `model` + `voice`.
 
 **Auth** — every `/v1/*` route needs `Authorization: Bearer <key>` (keys from the `API_KEYS` env var).
 

@@ -39,6 +39,25 @@ class Settings(BaseSettings):
     # Directory for the rotating log file (app.log). Empty string = stdout only.
     log_dir: str = "logs"
 
+    # --- Kokoro (English preset TTS) ---
+    # Registration still requires the model files present (is_available), so a
+    # flag left on with no assets downloaded skips the backend safely.
+    enable_kokoro: bool = True
+    kokoro_model_path: str = "models/kokoro/kokoro-v1.0.int8.onnx"
+    kokoro_voices_path: str = "models/kokoro/voices-v1.0.bin"
+    # Preset returned when an OpenAI-generic request falls back leniently.
+    kokoro_default_voice: str = "af_heart"
+
+    # --- VOICEVOX (Japanese preset TTS) ---
+    enable_voicevox: bool = True
+    voicevox_dict_dir: str = "models/voicevox/open_jtalk_dic_utf_8-1.11"
+    voicevox_vvm_dir: str = "models/voicevox/vvms"
+    # "" = let voicevox_core load the onnxruntime it ships with; else a path.
+    voicevox_onnxruntime: str = ""
+    # Comma-separated `style_id` or `speaker_uuid:style_id` allowed on the API;
+    # empty = expose every style found in the loadable VVMs.
+    voicevox_speaker_allowlist: str = ""
+
     @property
     def api_key_set(self) -> set[str]:
         return {k.strip() for k in self.api_keys.split(",") if k.strip()}
