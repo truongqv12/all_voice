@@ -35,7 +35,10 @@ fi
 _env_val() { grep -E "^$1=" "$APP_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]'; }
 HOST="$(_env_val HOST)";  HOST="${HOST:-0.0.0.0}"
 PORT="$(_env_val PORT)";  PORT="${PORT:-8123}"
-WORKERS="${WORKERS:-2}"
+# 1 worker by default: each worker loads its own TTS + ASR model into RAM, and
+# inference is CPU-bound (CTranslate2/torch saturate all cores) so extra workers
+# raise memory without adding throughput on this box. Override with WORKERS=N.
+WORKERS="${WORKERS:-1}"
 
 mkdir -p "$APP_DIR/logs"
 chown -R "$RUN_USER" "$APP_DIR/logs" 2>/dev/null || true
