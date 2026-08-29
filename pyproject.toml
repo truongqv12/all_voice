@@ -34,6 +34,22 @@ clone = [
 asr = [
     "faster-whisper>=1.1",
 ]
+# English preset TTS. Kokoro-82M v1.0 runs on onnxruntime (torch-free); it needs
+# the system package `espeak-ng` for English G2P (see docs). The model + voices
+# are downloaded separately via `scripts/fetch-kokoro.sh` (not packaged).
+en = [
+    "kokoro-onnx>=0.4",
+    "onnxruntime>=1.20",
+    "soundfile>=0.12",
+]
+# Japanese preset TTS. VOICEVOX Core (Rust core + onnxruntime) runs in-process.
+# The `voicevox_core` wheel is NOT on PyPI — it is installed from a GitHub
+# release, and the OpenJTalk dict + VVM voice models are fetched, all by
+# `scripts/fetch-voicevox.sh`. This extra only carries the auxiliary deps used to
+# decode/inspect its WAV output in tests.
+ja = [
+    "soundfile>=0.12",
+]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "httpx>=0.27"]
