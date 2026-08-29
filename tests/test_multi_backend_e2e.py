@@ -21,12 +21,33 @@ os.environ.setdefault("API_KEYS", "test-key")
 AUTH = {"Authorization": "Bearer test-key"}
 
 from app.backends.base import AudioResult, InvalidOption, Voice, VoiceBackend  # noqa: E402
+from app.backends.kokoro_backend import KokoroBackend  # noqa: E402
 from app.backends.registry import registry  # noqa: E402
+from app.backends.voicevox_backend import VoicevoxBackend  # noqa: E402
+from app.config import get_settings  # noqa: E402
 from app.main import app  # noqa: E402  (import after env is set)
 from app.voice_store import voice_store  # noqa: E402
 
 client = TestClient(app)
 SAMPLE = (Path(__file__).parent / "clone_1.wav").read_bytes()
+SETTINGS = get_settings()
+
+
+def test_real_engines_registered_when_assets_present():
+    """VieNeu always registers; Kokoro/VOICEVOX join when their assets exist —
+    each in its own language, with VieNeu staying the default backend."""
+    ids = {m["id"] for m in client.get("/v1/models", headers=AUTH).json()["data"]}
+    assert "vieneu" in ids
+
+    if KokoroBackend.is_available(SETTINGS):
+        assert "kokoro" in ids
+        en = client.get("/v1/voices?language=en", headers=AUTH).json()["data"]
+        assert len(en) == 28 and all(v["model"] == "kokoro" for v in en)
+
+    if VoicevoxBackend.is_available(SETTINGS):
+        assert "voicevox" in ids
+        ja = client.get("/v1/voices?language=ja", headers=AUTH).json()["data"]
+        assert ja and any("VOICEVOX" in v["name"] for v in ja)
 
 
 class FakeBackend(VoiceBackend):
