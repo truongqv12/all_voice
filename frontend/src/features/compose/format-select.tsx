@@ -9,7 +9,6 @@ export function FormatSelect({ format, onChange }: { format: AudioFormat; onChan
   const options: SelectOption[] = [
     { value: 'mp3', label: 'MP3', description: 'Nén chuẩn, nhẹ', icon: <FileAudio size={15} className="shrink-0 text-[var(--color-primary)]" /> },
     { value: 'wav', label: 'WAV', description: 'Lossless cao cấp', icon: <FileAudio size={15} className="shrink-0 text-[var(--color-primary)]" /> },
-    { value: 'ogg', label: 'OGG', description: 'Tối ưu web', icon: <FileAudio size={15} className="shrink-0 text-[var(--color-primary)]" /> },
   ]
 
   return (

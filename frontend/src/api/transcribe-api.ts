@@ -13,7 +13,7 @@ export type TranscriptSegment = {
 }
 
 export type TranscriptionResult = {
-  language: 'vi' | 'en'
+  language: string
   segments: TranscriptSegment[]
 }
 

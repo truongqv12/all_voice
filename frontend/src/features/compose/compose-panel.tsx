@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AudioFormat } from '../../api/types'
-import { textLimits } from '../../lib/limits'
+import { textLimits, type LimitKind } from '../../lib/limits'
 import { useSelection } from '../../store/selection'
 import { AudioResultCard } from './audio-result-card'
 import { CharCounter } from './char-counter'
@@ -63,7 +63,7 @@ export function ComposePanel() {
 
       <SynthControls speed={speed} format={format} onSpeed={setSpeed} onFormat={setFormat} />
 
-      <LimitStates />
+      <LimitStates kind={job.error as LimitKind} />
 
       <div className="flex flex-wrap items-center gap-3">
         <GenerateButton

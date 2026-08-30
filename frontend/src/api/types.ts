@@ -1,6 +1,6 @@
 export type VoiceLanguage = 'vi' | 'en' | 'ja'
 export type VoiceGender = 'female' | 'male' | 'neutral'
-export type AudioFormat = 'mp3' | 'wav' | 'ogg'
+export type AudioFormat = 'mp3' | 'wav'
 
 export interface Voice {
   id: string
@@ -10,6 +10,7 @@ export interface Voice {
   gender: VoiceGender
   styles: string[]
   description: string
+  previewUrl?: string
 }
 
 export interface SynthParams {

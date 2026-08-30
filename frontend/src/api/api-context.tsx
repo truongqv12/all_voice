@@ -1,16 +1,64 @@
 import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
 import { mockTtsApi } from './mock-tts-api'
+import { mockTranscribeApi } from './mock-transcribe-api'
+import { mockCloneApi } from './clone-api'
+import { httpTtsApi } from './http-tts-api'
+import { httpTranscribeApi } from './http-transcribe-api'
+import { httpCloneApi } from './http-clone-api'
 import type { TtsApi } from './tts-api'
+import type { TranscribeApi } from './transcribe-api'
+import type { CloneApi } from './clone-api'
 
-const TtsApiContext = createContext<TtsApi | null>(null)
+const useMock = import.meta.env.VITE_USE_MOCK === '1'
 
-export function ApiProvider({ children, ttsApi = mockTtsApi }: { children: ReactNode; ttsApi?: TtsApi }) {
-  return <TtsApiContext.Provider value={ttsApi}>{children}</TtsApiContext.Provider>
+export interface ApiContextValue {
+  ttsApi: TtsApi
+  transcribeApi: TranscribeApi
+  cloneApi: CloneApi
+}
+
+const defaultContextValue: ApiContextValue = {
+  ttsApi: useMock ? mockTtsApi : httpTtsApi,
+  transcribeApi: useMock ? mockTranscribeApi : httpTranscribeApi,
+  cloneApi: useMock ? mockCloneApi : httpCloneApi,
+}
+
+const ApiContext = createContext<ApiContextValue | null>(null)
+
+export function ApiProvider({
+  children,
+  ttsApi,
+  transcribeApi,
+  cloneApi,
+}: {
+  children: ReactNode
+  ttsApi?: TtsApi
+  transcribeApi?: TranscribeApi
+  cloneApi?: CloneApi
+}) {
+  const value: ApiContextValue = {
+    ttsApi: ttsApi || defaultContextValue.ttsApi,
+    transcribeApi: transcribeApi || defaultContextValue.transcribeApi,
+    cloneApi: cloneApi || defaultContextValue.cloneApi,
+  }
+  return <ApiContext.Provider value={value}>{children}</ApiContext.Provider>
 }
 
 export function useTtsApi(): TtsApi {
-  const api = useContext(TtsApiContext)
-  if (!api) throw new Error('useTtsApi must be used inside ApiProvider')
-  return api
+  const ctx = useContext(ApiContext)
+  if (!ctx) throw new Error('useTtsApi must be used inside ApiProvider')
+  return ctx.ttsApi
+}
+
+export function useTranscribeApi(): TranscribeApi {
+  const ctx = useContext(ApiContext)
+  if (!ctx) throw new Error('useTranscribeApi must be used inside ApiProvider')
+  return ctx.transcribeApi
+}
+
+export function useCloneApi(): CloneApi {
+  const ctx = useContext(ApiContext)
+  if (!ctx) throw new Error('useCloneApi must be used inside ApiProvider')
+  return ctx.cloneApi
 }

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
-import { mockTranscribeApi } from '../../api/mock-transcribe-api'
+import { useTranscribeApi } from '../../api/api-context'
 import type { TranscriptionResult } from '../../api/transcribe-api'
+import { mapErrorToLimitKind } from '../../api/error-map'
+import type { LimitKind } from '../../lib/limits'
 
 export type TranscribeState = 'idle' | 'uploading' | 'transcribing' | 'done' | 'error'
 const supported = /\.(mp3|wav|m4a)$/iu
 
 export function useTranscribe() {
+  const api = useTranscribeApi()
   const [state, setState] = useState<TranscribeState>('idle')
   const [progress, setProgress] = useState(0)
   const [result, setResult] = useState<TranscriptionResult | null>(null)
   const [file, setFile] = useState<File | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string | LimitKind>('')
   const url = useRef<string | null>(null)
 
   useEffect(() => () => { if (url.current) URL.revokeObjectURL(url.current) }, [])
@@ -22,10 +25,10 @@ export function useTranscribe() {
     url.current = URL.createObjectURL(nextFile)
     setFile(nextFile); setResult(null); setError(''); setState('uploading'); setProgress(0)
     try {
-      const transcription = await mockTranscribeApi.transcribe(nextFile, (stage, percent) => { setState(stage); setProgress(percent) })
+      const transcription = await api.transcribe(nextFile, (stage, percent) => { setState(stage); setProgress(percent) })
       setResult(transcription); setState('done')
-    } catch {
-      setError('generic'); setState('error')
+    } catch (err) {
+      setError(mapErrorToLimitKind(err) || 'generic'); setState('error')
     }
   }
 
