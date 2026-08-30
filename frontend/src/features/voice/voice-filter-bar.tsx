@@ -1,33 +1,25 @@
 import { Globe, RotateCcw, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { VoiceGender, VoiceLanguage } from '../../api/types'
+import type { VoiceLanguage } from '../../api/types'
 import { Chip } from '../../components/ui/chip'
 import { FlagIcon } from '../../components/ui/flag-icon'
 import { IconButton } from '../../components/ui/icon-button'
 
 interface Props {
   language: VoiceLanguage | 'all'
-  gender: VoiceGender | 'all'
   query: string
   setLanguage(value: VoiceLanguage | 'all'): void
-  setGender(value: VoiceGender | 'all'): void
   setQuery(value: string): void
   reset(): void
 }
 
-export function VoiceFilterBar({ language, gender, query, setLanguage, setGender, setQuery, reset }: Props) {
+export function VoiceFilterBar({ language, query, setLanguage, setQuery, reset }: Props) {
   const { t } = useTranslation()
   const languages: Array<{ value: VoiceLanguage | 'all'; label: string; country: 'vi' | 'en' | 'ja' | 'all' }> = [
     { value: 'all', label: t('voice.all'), country: 'all' },
     { value: 'vi', label: 'Tiếng Việt', country: 'vi' },
     { value: 'en', label: 'English', country: 'en' },
     { value: 'ja', label: '日本語', country: 'ja' },
-  ]
-  const genders: Array<{ value: VoiceGender | 'all'; label: string }> = [
-    { value: 'all', label: t('voice.allGroups') },
-    { value: 'female', label: t('voice.female') },
-    { value: 'male', label: t('voice.male') },
-    { value: 'neutral', label: t('voice.neutral') },
   ]
 
   return (
@@ -41,13 +33,6 @@ export function VoiceFilterBar({ language, gender, query, setLanguage, setGender
               <Globe size={14} className="shrink-0 text-[var(--color-muted)]" />
             )}
             <span>{item.label}</span>
-          </Chip>
-        ))}
-      </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {genders.map(item => (
-          <Chip key={item.value} selected={gender === item.value} onClick={() => setGender(item.value)}>
-            {item.label}
           </Chip>
         ))}
       </div>

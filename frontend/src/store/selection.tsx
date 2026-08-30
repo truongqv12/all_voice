@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Voice } from '../api/types'
 import { useTtsApi } from '../api/api-context'
+import { appConfig } from '../config/app-config'
 
 interface SelectionState { voices: Voice[]; loading: boolean; error: boolean; selectedVoice: Voice | null; style: string; selectVoice(voice: Voice): void; addVoice(voice: Voice): void; removeVoice(id: string): void; setStyle(style: string): void; reload(): Promise<void> }
 const SelectionContext = createContext<SelectionState | null>(null)
@@ -39,7 +40,7 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     setError(false)
     try {
       const systemVoices = await api.listVoices()
-      const saved = loadSavedCustomVoices()
+      const saved = appConfig.features.cloning ? loadSavedCustomVoices() : []
       const next = [...systemVoices, ...saved]
       const refreshed = selectedVoice ? next.find(voice => voice.id === selectedVoice.id) : next[0]
       setVoices(next)

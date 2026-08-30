@@ -35,17 +35,18 @@ export const VoiceCard = memo(function VoiceCard({
       <div className="flex items-start gap-2">
         <div className="min-w-0 grow">
           <h3 className="truncate text-sm font-semibold">{voice.name}</h3>
-          <p className="mt-1 line-clamp-2 text-xs leading-5 text-[var(--color-muted)]">{voice.description}</p>
         </div>
         <VoicePreviewButton voice={voice} active={active} loading={loading} onToggle={onToggle} />
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-[var(--color-muted)]">
         <FlagIcon country={voice.language} className="size-3.5 shrink-0 rounded-xs" />
         <span className="font-medium text-[var(--color-text)]">{voice.engine}</span>
-        <span aria-hidden="true">·</span>
-        <span>{t(`voice.${voice.gender}`)}</span>
-        <span aria-hidden="true">·</span>
-        <span>{voice.styles[0]}</span>
+        {voice.styles.length > 0 && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>{voice.styles[0]}</span>
+          </>
+        )}
       </div>
       <Button
         variant={selected ? 'secondary' : 'quiet'}

@@ -6,7 +6,7 @@ import { Select, type SelectOption } from '../../components/ui/select'
 export function StyleSelect() {
   const { selectedVoice, style, setStyle } = useSelection()
   const { t } = useTranslation()
-  if (!selectedVoice) return null
+  if (!selectedVoice || selectedVoice.styles.length === 0) return null
 
   const options: SelectOption[] = selectedVoice.styles.map(item => ({
     value: item,

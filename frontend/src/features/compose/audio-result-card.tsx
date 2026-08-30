@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { downloadAudio } from '../../lib/download'
 import { useAudioPlayer } from './use-audio-player'
+import { appConfig } from '../../config/app-config'
 
 export function AudioResultCard({ result, onRegenerate }: { result: SynthResult; onRegenerate(): void }) {
   const { t } = useTranslation()
@@ -57,13 +58,15 @@ export function AudioResultCard({ result, onRegenerate }: { result: SynthResult;
           <RotateCcw className="shrink-0" size={16} />
           <span>{t('compose.regenerate')}</span>
         </Button>
-        <Tooltip label={t('compose.subtitleSoon')}>
-          <span>
-            <Button variant="secondary" disabled>
-              <span>{t('compose.subtitle')}</span>
-            </Button>
-          </span>
-        </Tooltip>
+        {appConfig.features.ttsToSrt && (
+          <Tooltip label={t('compose.subtitleSoon')}>
+            <span>
+              <Button variant="secondary" disabled>
+                <span>{t('compose.subtitle')}</span>
+              </Button>
+            </span>
+          </Tooltip>
+        )}
       </div>
     </section>
   )
