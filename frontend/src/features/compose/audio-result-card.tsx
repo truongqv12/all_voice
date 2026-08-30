@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Download, Pause, Play, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SynthResult } from '../../api/types'
@@ -9,6 +10,14 @@ import { useAudioPlayer } from './use-audio-player'
 export function AudioResultCard({ result, onRegenerate }: { result: SynthResult; onRegenerate(): void }) {
   const { t } = useTranslation()
   const player = useAudioPlayer()
+
+  useEffect(() => {
+    return () => {
+      if (result.audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(result.audioUrl)
+      }
+    }
+  }, [result.audioUrl])
 
   return (
     <section className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-4">
