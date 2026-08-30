@@ -109,6 +109,14 @@ class VoiceInfo(BaseModel):
     model: str
     language: str = "vi"
     styles: list[str] = Field(default_factory=list)
+    preview_url: str = Field(
+        default="",
+        description="Đường dẫn nghe thử (mp3). Preset: không cần key; clone: cần `Authorization: Bearer`.",
+    )
+    preview_base64: str | None = Field(
+        default=None,
+        description="mp3 base64 — chỉ có khi `?preview=base64` và preview đã được tạo sẵn (cache).",
+    )
 
 
 class VoiceList(BaseModel):

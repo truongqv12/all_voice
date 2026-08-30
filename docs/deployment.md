@@ -39,6 +39,14 @@ Engine tuỳ chọn (bảng đầy đủ + mặc định: `app/config.py`, READM
 `ENABLE_VOICEVOX` · `VOICEVOX_DICT_DIR` · `VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` ·
 `VOICEVOX_SPEAKER_ALLOWLIST`.
 
+Nghe thử giọng (preview): `PREVIEWS_DIR` (mặc định `data/previews`, **xóa được** —
+tự tạo lại) · `PREVIEW_WARM_ON_STARTUP` (warm backend mặc định + clone lúc khởi
+động, chạy nền) · `PREVIEW_CONCURRENCY` (ngân sách CPU **riêng** cho preview, tách
+khỏi `MAX_CONCURRENCY` nên preview không giành CPU của `/v1/audio/speech` + ASR;
+mặc định 1) · `PREVIEW_TEXT_VI` / `PREVIEW_TEXT_EN` / `PREVIEW_TEXT_JA` (đổi câu
+mẫu, để trống = câu mặc định). Với `WORKERS≥2`, preview lưu **mỗi file một sidecar**
+(`{slug}.mp3.json`) nên không có tranh chấp manifest dùng chung.
+
 ## Engine tiếng Anh (Kokoro) & Nhật (VOICEVOX)
 
 Tuỳ chọn, tách khỏi base install. Bật engine mà **chưa tải asset** thì backend tự

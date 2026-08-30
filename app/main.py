@@ -118,6 +118,17 @@ def create_app() -> FastAPI:
         settings.max_concurrency, settings.asr_model, asr.is_available(),
     )
 
+    # Warm previews off the boot path: a background daemon so startup never blocks,
+    # and warm_startup() covers only the default backend + clones (VOICEVOX/Kokoro
+    # self-heal lazily, preserving their lazy per-style model loading).
+    if settings.preview_warm_on_startup:
+        import threading
+
+        from . import previews
+
+        threading.Thread(target=previews.warm_startup, name="preview-warm", daemon=True).start()
+        log.info("preview warm started (background, default backend + clones)")
+
     app.include_router(speech.router, prefix="/v1")
     app.include_router(transcriptions.router, prefix="/v1")
     app.include_router(voices.router, prefix="/v1")

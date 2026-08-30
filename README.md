@@ -143,6 +143,7 @@ Mọi route `/v1/*` cần header `Authorization: Bearer <key>`.
 | `POST` | `/v1/audio/transcriptions` | Nhận dạng giọng → transcript + phụ đề (cần extra `asr`) |
 | `GET`  | `/v1/models` | Liệt kê các backend đã đăng ký |
 | `GET`  | `/v1/voices` | Liệt kê giọng preset + giọng clone (mọi backend) |
+| `GET`  | `/v1/voices/{model}/{voice_id}/preview` | Nghe thử giọng (mp3). Preset: công khai; clone: cần key |
 | `POST` | `/v1/audio/voices` | Tạo giọng clone (multipart) |
 | `GET` · `DELETE` | `/v1/audio/voices/{id}` | Lấy / xóa một giọng clone |
 | `POST` | `/v1/audio/voice_consents` | Cấp consent id (để tương thích OpenAI) |
@@ -163,6 +164,27 @@ client.audio.speech.create(
 > [!TIP]
 > `model="tts-1"` và các tên giọng OpenAI (`alloy`, …) cũng được chấp nhận: model lạ
 > sẽ route về backend mặc định, giọng lạ về preset đầu tiên.
+
+## 🔊 Nghe thử giọng (preview)
+
+Mỗi giọng trong `GET /v1/voices` kèm sẵn `preview_url` — một câu mẫu chuẩn, đúng
+ngôn ngữ (vi/en/ja), tổng hợp **một lần** rồi cache ra đĩa (`data/previews/`).
+
+```bash
+# Preset: CÔNG KHAI, không cần key -> dùng thẳng trong <audio> của trình duyệt
+curl -s http://localhost:8123/v1/voices/vieneu/<voice_id>/preview -o preview.mp3
+```
+
+```html
+<audio src="http://localhost:8123/v1/voices/vieneu/<voice_id>/preview" controls></audio>
+```
+
+- **Giọng clone cần `Authorization: Bearer <key>`** (preview clone tái tạo chất
+  giọng thật của một người → không public). Không key → `401`.
+- `GET /v1/voices?preview=base64` nhúng luôn `preview_base64` cho các giọng **đã
+  cache sẵn** (giọng chưa warm trả `null` — lời gọi list không bao giờ tự synth).
+- Preview của backend mặc định + giọng clone được warm sẵn lúc khởi động (chạy
+  nền, không chặn boot); VOICEVOX/Kokoro tạo lười ở lần nghe đầu tiên.
 
 ## 🎙️ Clone giọng
 

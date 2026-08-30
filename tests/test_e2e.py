@@ -45,11 +45,18 @@ def test_openapi_uses_bearer_security_scheme():
 
     assert bearer["type"] == "http"
     assert bearer["scheme"] == "bearer"
+    # The voice-preview endpoint is intentionally public for preset voices so a
+    # browser <audio src> plays them with no header; clone previews are guarded
+    # inside the handler against the same api_key_set, not via the OpenAPI scheme.
+    public_preview_path = "/v1/voices/{model}/{voice_id}/preview"
     for path, path_item in schema["paths"].items():
         if not path.startswith("/v1/"):
             continue
         for operation in path_item.values():
-            assert {"BearerAuth": []} in operation["security"]
+            if path != public_preview_path:
+                assert {"BearerAuth": []} in operation["security"]
+            # No route may declare an Authorization header parameter (the bearer
+            # scheme, or the preview handler's manual check, owns that header).
             assert not any(
                 parameter.get("in") == "header"
                 and parameter.get("name", "").lower() == "authorization"

@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import os
 import secrets
+import threading
 import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
+from .. import previews
 from ..auth import require_api_key
 from ..backends.base import VoiceBackend
 from ..backends.registry import registry
@@ -120,6 +122,14 @@ async def create_voice(
         voice_store.delete(record.id)
         raise _error(400, f"Voice enrolment failed: {exc}", "voice_enrolment_failed")
 
+    # Fire-and-forget preview generation: best-effort, never affects the enrol
+    # response. ensure_preview's post-synth ownership re-check drops the write if
+    # the clone is deleted mid-synth.
+    threading.Thread(
+        target=lambda: previews.ensure_preview(backend.name, record.id),
+        name=f"preview-{record.id}", daemon=True,
+    ).start()
+
     return CustomVoice(id=record.id, created_at=record.created_at, name=record.name)
 
 
@@ -147,6 +157,7 @@ async def delete_custom_voice(voice_id: str, _key: str = Depends(require_api_key
         if backend is not None and backend.supports_cloning:
             backend.remove_voice(voice_id)
         voice_store.delete(voice_id)
+        previews.remove_preview(record.backend, voice_id)
         return DeletedVoice(id=voice_id)
 
     # No store record (e.g. enrolled on another worker/instance whose write we
@@ -156,6 +167,7 @@ async def delete_custom_voice(voice_id: str, _key: str = Depends(require_api_key
     for name in registry.models():
         backend = registry.get(name)
         if backend is not None and backend.supports_cloning and backend.remove_voice(voice_id):
+            previews.remove_preview(name, voice_id)
             return DeletedVoice(id=voice_id)
     raise _error(404, f"Voice '{voice_id}' not found.", "voice_not_found")
 

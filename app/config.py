@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     # empty = expose every style found in the loadable VVMs.
     voicevox_speaker_allowlist: str = ""
 
+    # --- Voice previews ("nghe thử") ---
+    # Where per-voice preview mp3s + sidecars are cached (safe to delete;
+    # regenerates on next request/warm).
+    previews_dir: str = "data/previews"
+    # Warm the default backend's presets + existing clones at startup (background
+    # thread, non-blocking). VOICEVOX/Kokoro stay lazy.
+    preview_warm_on_startup: bool = True
+    # Dedicated CPU budget for preview generation, kept OFF synth_semaphore so
+    # previews never starve paid /v1/audio/speech + ASR. 1 = one preview synth at a time.
+    preview_concurrency: int = 1
+    # Standard passage per language; empty string = use the built-in default.
+    preview_text_vi: str = ""
+    preview_text_en: str = ""
+    preview_text_ja: str = ""
+
     @property
     def api_key_set(self) -> set[str]:
         return {k.strip() for k in self.api_keys.split(",") if k.strip()}

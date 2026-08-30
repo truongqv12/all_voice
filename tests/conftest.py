@@ -8,12 +8,18 @@ base install without the `en`/`ja` extras.
 
 from __future__ import annotations
 
-from pathlib import Path
+import os
 
-import numpy as np
-import pytest
+# Disable preview warm globally so importing app.main (app = create_app()) stays
+# instant and never spawns a background synth thread during tests.
+os.environ.setdefault("PREVIEW_WARM_ON_STARTUP", "false")
 
-from app.config import get_settings
+from pathlib import Path  # noqa: E402
+
+import numpy as np  # noqa: E402
+import pytest  # noqa: E402
+
+from app.config import get_settings  # noqa: E402
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 

@@ -49,23 +49,30 @@ class VieNeuBackend(VoiceBackend):
     def _get_engine(self):
         # One engine for presets + clones so enrolled voices resolve in infer().
         # CPU -> torch-free ONNX; CUDA -> PyTorch.
+        # Double-checked lock: concurrent first callers (e.g. the preview warm
+        # thread + a first request) must not double-construct the engine.
         if self._engine is None:
-            from vieneu import Vieneu
+            with self._lock:
+                if self._engine is None:
+                    from vieneu import Vieneu
 
-            if self._device == "cpu":
-                self._engine = Vieneu(backend="onnx")  # torch-free, fastest on CPU
-            else:
-                self._engine = Vieneu(device=self._device)  # CUDA -> PyTorch
+                    if self._device == "cpu":
+                        engine = Vieneu(backend="onnx")  # torch-free, fastest on CPU
+                    else:
+                        engine = Vieneu(device=self._device)  # CUDA -> PyTorch
 
-            # Snapshot the genuine built-in preset voices before any clones are added
-            voices: list[Voice] = []
-            for entry in self._engine.list_preset_voices():
-                if isinstance(entry, (tuple, list)):
-                    label, voice_id = str(entry[0]), str(entry[-1])
-                else:
-                    label = voice_id = str(entry)
-                voices.append(Voice(id=voice_id, name=label, model=self.name, language="vi"))
-            self._presets_cache = voices
+                    # Snapshot the genuine built-in preset voices before any clones are added
+                    voices: list[Voice] = []
+                    for entry in engine.list_preset_voices():
+                        if isinstance(entry, (tuple, list)):
+                            label, voice_id = str(entry[0]), str(entry[-1])
+                        else:
+                            label = voice_id = str(entry)
+                        voices.append(Voice(id=voice_id, name=label, model=self.name, language="vi"))
+                    self._presets_cache = voices
+                    # Publish the fully-initialised engine last, so another thread
+                    # that sees a non-None self._engine also sees _presets_cache.
+                    self._engine = engine
 
         return self._engine
 
@@ -75,11 +82,18 @@ class VieNeuBackend(VoiceBackend):
         return self._presets_cache or []
 
     def list_voices(self) -> list[Voice]:
-        custom_ids = set(self._custom.keys())
+        # Snapshot _custom under the lock: the preview warm/enrol background
+        # threads call this concurrently with register_voice/remove_voice, and
+        # iterating a dict while another thread resizes it raises RuntimeError.
+        # _presets() may re-enter self._lock via _get_engine(), so snapshot first,
+        # release, then read presets.
+        with self._lock:
+            custom = dict(self._custom)
+        custom_ids = set(custom)
         presets = [p for p in self._presets() if p.id not in custom_ids]
         customs = [
             Voice(id=vid, name=name, model=self.name, language="vi")
-            for vid, name in self._custom.items()
+            for vid, name in custom.items()
         ]
         return presets + customs
 
@@ -104,12 +118,17 @@ class VieNeuBackend(VoiceBackend):
             engine.add_voice(
                 voice_id, sample_path, denoise=denoise, use_ref_codes=use_ref_codes
             )
-        self._custom[voice_id] = name
+            # Mutate _custom under the lock so a concurrent list_voices snapshot
+            # (preview warm/enrol threads) never sees a mid-resize dict.
+            self._custom[voice_id] = name
 
     def remove_voice(self, voice_id: str) -> bool:
-        if self._engine is not None and hasattr(self._engine, "_preset_voices"):
-            self._engine._preset_voices.pop(voice_id, None)
-        return self._custom.pop(voice_id, None) is not None
+        # Under the lock so it serialises with a snapshotting list_voices and with
+        # an in-flight infer (never drop a voice mid-synthesis).
+        with self._lock:
+            if self._engine is not None and hasattr(self._engine, "_preset_voices"):
+                self._engine._preset_voices.pop(voice_id, None)
+            return self._custom.pop(voice_id, None) is not None
 
     # Reading styles VieNeu understands; an unknown value is rejected (400).
     _STYLES = {"tu_nhien", "tin_tuc", "doc_truyen"}
