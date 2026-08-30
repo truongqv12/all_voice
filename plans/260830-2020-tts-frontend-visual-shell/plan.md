@@ -1,7 +1,7 @@
 ---
 title: "TTS Frontend — Standalone Visual Shell (mock-first, mobile-first, multi-feature)"
 description: "Bộ source FE độc lập (chưa tích hợp backend), mock data, mobile-first, dark/light + i18n VN/EN, đa khu (TTS · Speech-to-Text + xuất SRT/VTT/TXT · Voice Cloning), kết thúc bằng E2E screenshot + vision review thẩm mỹ."
-status: pending
+status: done
 priority: P1
 effort: "6-9d"
 tags: [frontend, ui-ux, react, vite, tailwind-v4, react-router, mock, mobile-first, i18n, asr, subtitles, voice-cloning, e2e, visual-qa]
@@ -39,13 +39,13 @@ Nền tảng đã chốt (brainstorm + research): React + Vite + TypeScript + **
 
 | # | Phase | Status | Depends |
 |---|-------|--------|---------|
-| 1 | [Scaffold, Tokens, Theme, i18n, Routing & Nav](./phase-01-start.md) | Pending | — |
-| 2 | [Voice Panel (mock)](./phase-02-voice-panel.md) | Pending | 1 |
-| 3 | [Compose Panel + mock generate](./phase-03-compose-panel.md) | Pending | 1, 2 |
-| 4 | [Speech-to-Text (mock) + subtitle export](./phase-04-asr.md) | Pending | 1 |
-| 5 | [Voice Cloning (mock, consent-first)](./phase-05-cloning.md) | Pending | 1, 2 |
-| 6 | [Ancillary, i18n, a11y & polish (toàn 3 khu)](./phase-06-ancillary-and-polish.md) | Pending | 2, 3, 4, 5 |
-| 7 | [E2E Visual QA + Vision Review](./phase-07-e2e-visual-qa.md) | Pending | 6 |
+| 1 | [Scaffold, Tokens, Theme, i18n, Routing & Nav](./phase-01-start.md) | Done | — |
+| 2 | [Voice Panel (mock)](./phase-02-voice-panel.md) | Done | 1 |
+| 3 | [Compose Panel + mock generate](./phase-03-compose-panel.md) | Done | 1, 2 |
+| 4 | [Speech-to-Text (mock) + subtitle export](./phase-04-asr.md) | Done | 1 |
+| 5 | [Voice Cloning (mock, consent-first)](./phase-05-cloning.md) | Done | 1, 2 |
+| 6 | [Ancillary, i18n, a11y & polish (toàn 3 khu)](./phase-06-ancillary-and-polish.md) | Done | 2, 3, 4, 5 |
+| 7 | [E2E Visual QA + Vision Review](./phase-07-e2e-visual-qa.md) | Done | 6 |
 
 ## Architecture (tổng thể)
 
@@ -107,17 +107,17 @@ Mỗi phase khi chạy để bạn kiểm tra sẽ mở đúng **:5273**; dừng
 
 ## Success Criteria (Acceptance)
 
-- [ ] `cd frontend && npm i && npm run dev` chạy, render **mobile (375px) + desktop** không lỗi, **không cuộn ngang** ở 375/768/1024/1440.
-- [ ] Toggle **theme** light/dark mượt, **không FOUC**, nhớ lựa chọn (Tailwind v4 `@custom-variant dark`).
-- [ ] Toggle **ngôn ngữ giao diện** VN/EN đổi toàn bộ chuỗi (cả 3 khu); mặc định VN, tự nhận trình duyệt.
-- [ ] **Nav 3 khu** (`/` · `/transcribe` · `/clone`) điều hướng + deep-link + active-state + back-button chuẩn; mobile nav gọn.
-- [ ] **TTS**: lọc giọng theo ngôn ngữ/model/giới tính + search; **nghe thử** single-instance; chọn giọng cập nhật chip; nhập/thả `.txt` + char counter; controls (model/style/speed/format); **Tạo → progress → player + Download + Tạo lại**; text dài → "stream-mode" progress.
-- [ ] **Speech-to-Text**: thả audio → transcript (segment + timestamp); **xuất SRT/VTT/TXT đúng chuẩn** + Copy; đổi options (chars/line, lines/cue, granularity) đổi output; chunk chuẩn (kiểm bằng unit-test).
-- [ ] **Voice Cloning**: enrol form **consent bắt buộc** + mẫu → Tạo (mock) → clone vào list; xoá có confirm; `AuthGate` demo chưa/đã đăng nhập; clone hiện ở voice picker TTS (nhóm "Giọng của bạn").
-- [ ] Mọi UX state demoable, gồm **giới hạn anon giả lập** (429/quota/quá-dài) với copy thân thiện VN/EN.
-- [ ] UsageGuide + DonateCard (QR + BMC) hiển thị nhẹ nhàng, không chặn.
-- [ ] a11y: contrast ≥4.5, focus ring, keyboard nav, `prefers-reduced-motion`; không emoji làm icon; form cloning + panel export dùng bàn phím được.
-- [ ] **Phase 7**: Playwright chụp đủ ma trận (state cốt lõi 3 khu × 4 breakpoint × 2 theme); **`agy` vision** chạy + xuất **report chấm điểm** vào `plans/reports/`.
+- [x] `cd frontend && npm i && npm run dev` chạy, render **mobile (375px) + desktop** không lỗi, **không cuộn ngang** ở 375/768/1024/1440.
+- [x] Toggle **theme** light/dark mượt, **không FOUC**, nhớ lựa chọn (Tailwind v4 `@custom-variant dark`).
+- [x] Toggle **ngôn ngữ giao diện** VN/EN đổi toàn bộ chuỗi (cả 3 khu); mặc định VN, tự nhận trình duyệt.
+- [x] **Nav 3 khu** (`/` · `/transcribe` · `/clone`) điều hướng + deep-link + active-state + back-button chuẩn; mobile nav gọn.
+- [x] **TTS**: lọc giọng theo ngôn ngữ/model/giới tính + search; **nghe thử** single-instance; chọn giọng cập nhật chip; nhập/thả `.txt` + char counter; controls (model/style/speed/format); **Tạo → progress → player + Download + Tạo lại**; text dài → "stream-mode" progress.
+- [x] **Speech-to-Text**: thả audio → transcript (segment + timestamp); **xuất SRT/VTT/TXT đúng chuẩn** + Copy; đổi options (chars/line, lines/cue, granularity) đổi output; chunk chuẩn (kiểm bằng unit-test).
+- [x] **Voice Cloning**: enrol form **consent bắt buộc** + mẫu → Tạo (mock) → clone vào list; xoá có confirm; `AuthGate` demo chưa/đã đăng nhập; clone hiện ở voice picker TTS (nhóm "Giọng của bạn").
+- [x] Mọi UX state demoable, gồm **giới hạn anon giả lập** (429/quota/quá-dài) với copy thân thiện VN/EN.
+- [x] UsageGuide + DonateCard (QR + BMC) hiển thị nhẹ nhàng, không chặn.
+- [x] a11y: contrast ≥4.5, focus ring, keyboard nav, `prefers-reduced-motion`; không emoji làm icon; form cloning + panel export dùng bàn phím được.
+- [x] **Phase 7**: Playwright chụp đủ ma trận (state cốt lõi 3 khu × 4 breakpoint × 2 theme); **`agy` vision** chạy + xuất **report chấm điểm** vào `plans/reports/`.
 
 ## Validation Log
 

@@ -1,6 +1,6 @@
 ---
 title: "Phase 3: Compose Panel + mock generate"
-status: todo
+status: done
 ---
 
 # Phase 3: Compose Panel + mock generate flow

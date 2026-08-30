@@ -1,6 +1,6 @@
 ---
 title: "Phase 5: Voice Cloning (mock, consent-first)"
-status: todo
+status: done
 ---
 
 # Phase 5: Voice Cloning — mock, consent-first

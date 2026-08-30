@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "required": ["summary", "findings"],
+  "properties": {
+    "summary": { "type": "string" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "screen", "breakpoint", "theme", "suggestion"],
+        "properties": {
+          "severity": { "type": "string", "enum": ["critical", "major", "minor"] },
+          "screen": { "type": "string" },
+          "breakpoint": { "type": "integer" },
+          "theme": { "type": "string", "enum": ["light", "dark"] },
+          "suggestion": { "type": "string" }
+        }
+      }
+    }
+  }
+}

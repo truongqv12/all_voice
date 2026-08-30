@@ -1,6 +1,6 @@
 ---
 title: "Phase 2: Voice Panel (mock)"
-status: todo
+status: done
 ---
 
 # Phase 2: Voice Panel (mock data)

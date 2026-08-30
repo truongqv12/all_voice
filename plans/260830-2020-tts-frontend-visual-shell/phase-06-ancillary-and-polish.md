@@ -1,6 +1,6 @@
 ---
 title: "Phase 6: Ancillary, i18n, a11y & polish"
-status: todo
+status: done
 ---
 
 # Phase 6: Ancillary, i18n coverage, a11y & responsive polish

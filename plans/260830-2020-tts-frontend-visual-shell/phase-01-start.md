@@ -1,6 +1,6 @@
 ---
 title: "Phase 1: Scaffold, Tokens, Theme & i18n"
-status: todo
+status: done
 ---
 
 # Phase 1: Scaffold, Design Tokens, Theme & i18n Foundation

@@ -14,9 +14,9 @@ build/
 # data/  = cloned-voice samples + registry.json
 # logs/  = app.log (rotating) + server.log
 # .hf_cache/ = only if HF_HOME points here (model cache is normally ~/.cache/huggingface)
-data/
-logs/
-.hf_cache/
+/data/
+/logs/
+/.hf_cache/
 
 # --- Downloaded TTS model assets (large; fetched via scripts/, not committed) ---
 # Kept out of the tree except the .gitkeep placeholder.
@@ -26,10 +26,11 @@ models/*
 # --- Synth test artifacts (WAVs saved for manual listening) ---
 tests/output/
 
-# --- Generated audio (keep the test clone sample) ---
+# --- Generated audio (keep the test clone sample and frontend mock sample) ---
 *.wav
 !tests/*.wav
 *.mp3
+!frontend/public/audio/*.mp3
 *.flac
 *.aac
 *.opus

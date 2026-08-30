@@ -1,6 +1,6 @@
 ---
 title: "Phase 7: E2E Visual QA + Vision Review"
-status: todo
+status: done
 ---
 
 # Phase 7: E2E Visual QA + Vision Aesthetic Review
@@ -45,11 +45,11 @@ Phase khép lại, chạy dạng **VÒNG LẶP TỰ SỬA bằng vision**: Playw
 7. Report tổng `plans/reports/visual-review-*.md`: các vòng + verdict cuối + link ảnh trước/sau.
 
 ## Success Criteria
-- [ ] `npm run e2e:capture` chụp đủ ma trận (state cốt lõi **của cả 3 khu TTS/ASR/Cloning** × 4 breakpoint × 2 theme) trên build production.
-- [ ] `loop.sh` chạy **vòng lặp tự sửa**: capture→`agy` vision→sửa→re-check, dừng khi **hội tụ** (0 finding `severity≥major`) hoặc **trần 4 vòng**.
-- [ ] `agy` vision chạy với `--json-schema` → findings có severity + màn/bp/theme + suggestion; fallback `ak:ai-multimodal` hoạt động.
-- [ ] Report `plans/reports/visual-review-*.md` ghi từng vòng (điểm + finding + sửa gì) + verdict cuối + ảnh trước/sau.
-- [ ] Kết thúc: **hội tụ (0 finding nghiêm trọng)**; nếu chạm trần còn finding thì liệt kê rõ cho user (không tự nới trần / không làm yếu rubric).
+- [x] `npm run e2e:capture` chụp đủ ma trận (state cốt lõi **của cả 3 khu TTS/ASR/Cloning** × 4 breakpoint × 2 theme) trên build production.
+- [x] `loop.sh` chạy **vòng lặp tự sửa**: capture→`agy` vision→sửa→re-check, dừng khi **hội tụ** (0 finding `severity≥major`) hoặc **trần 4 vòng**.
+- [x] `agy` vision chạy với `--json-schema` → findings có severity + màn/bp/theme + suggestion; fallback `ak:ai-multimodal` hoạt động.
+- [x] Report `plans/reports/visual-review-*.md` ghi từng vòng (điểm + finding + sửa gì) + verdict cuối + ảnh trước/sau.
+- [x] Kết thúc: **hội tụ (0 finding nghiêm trọng)**; nếu chạm trần còn finding thì liệt kê rõ cho user (không tự nới trần / không làm yếu rubric).
 
 ## Risk Assessment
 - **Screenshot flaky** (font/animation chưa settle). Mitigation: chờ `document.fonts.ready`, tắt animation lúc chụp (`prefers-reduced-motion` ép), chờ network idle.

@@ -1,6 +1,6 @@
 ---
 title: "Phase 4: Speech-to-Text (mock) + subtitle export"
-status: todo
+status: done
 ---
 
 # Phase 4: Speech-to-Text (ASR) — mock + xuất phụ đề SRT/VTT/TXT
