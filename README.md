@@ -304,6 +304,11 @@ sudo bash deploy/install-service.sh    # chạy nền như service systemd (Linu
 Service tự khởi động lại khi crash và khi reboot — không giữ terminal. Hướng dẫn đầy
 đủ: [docs/deployment.md](docs/deployment.md).
 
+**Mở công khai không cần đăng nhập** (API ẩn sau nginx + Cloudflare Tunnel, tầng
+anon-gate tự bảo vệ theo chi phí thật, UI test `web/index.html`): đặt
+`ANON_ENABLED=true`, xem [docs/deployment.md — "Public qua Cloudflare Tunnel"](docs/deployment.md)
++ [`deploy/cloudflare-tunnel.md`](deploy/cloudflare-tunnel.md).
+
 ## 🩺 Log & Debug
 
 Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng DB.

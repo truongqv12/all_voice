@@ -411,3 +411,86 @@ expose. **Credit** nhân vật nhúng sẵn trong `Voice.name` (chuỗi `VOICEVO
 `resolve_voice`, decode WAV, parse style/allowlist — **không cần model**. Test sinh
 voice thật + round-trip TTS→ASR nằm dưới marker `synth`, **skip gọn** khi asset
 vắng (`tests/test_kokoro.py`, `tests/test_voicevox.py`, `tests/test_tts_asr_roundtrip.py`).
+
+---
+
+## 13. Mở công khai không đăng nhập — tầng anon-gate, streaming, topology 1 cửa
+
+Mục tiêu: mở TTS/ASR cho **người dùng free, không cần key**, chạy trên **1 máy CPU**
+mà **không sập/treo** dù bị lạm dụng. Ba trụ: (a) topology "1 cửa" giấu API sau
+nginx + Cloudflare Tunnel, (b) tầng gate tự bảo vệ theo **chi phí thật**, (c) một
+endpoint **streaming** cho văn bản dài. Bật bằng `ANON_ENABLED=true`.
+
+### 13.1 Topology "1 cửa"
+
+```mermaid
+flowchart LR
+    Net["internet"] --> Edge["Cloudflare edge<br/>(rate-rule + WAF + Bot Fight)"]
+    Edge -->|"tunnel (outbound, 0 port inbound)"| CFd["cloudflared"]
+    CFd --> Nginx["nginx 127.0.0.1:8080<br/>buffering off · body cap · CF-Connecting-IP"]
+    Nginx --> API["API 127.0.0.1:8123<br/>(loopback — ẩn khỏi LAN)"]
+```
+
+API bind **loopback** (`HOST=127.0.0.1`, mặc định fail-closed) → chỉ nginx tới được.
+nginx là cửa duy nhất, chuyển `CF-Connecting-IP` xuống app. **Loopback-gate:** app
+**chỉ tin** header IP đó khi peer socket là loopback (đi qua nginx) — request gọi
+thẳng không giả mạo được IP để né ngân sách. Cấu hình + checklist: `docs/deployment.md`,
+`deploy/nginx.conf.example`, `deploy/cloudflare-tunnel.md`.
+
+### 13.2 Hai tier + gate theo chi phí thật
+
+| | ANON (không key) | TRUSTED (key hợp lệ) |
+|---|---|---|
+| Rate limit | token-bucket/IP (`ANON_RATE_PER_MIN`, `ANON_BURST`) | bỏ qua |
+| Ngân sách ngày | ký tự (TTS) + giây audio (ASR) theo IP, lưu SQLite | bỏ qua |
+| Admission | giới hạn đồng thời/IP + hàng đợi có trần | bỏ qua |
+| CRUD giọng clone | **cấm** (401) | cho phép |
+
+`resolve_tier` (`app/client_identity.py`) phân loại mỗi request; khám phá
+(`/v1/voices`, `/v1/models`, nghe thử) **luôn công khai** cho cả hai. Gate tính theo
+**đơn vị chi phí CPU thật** — ký tự cho TTS, giây audio cho ASR — chứ không chỉ đếm
+request, nên một request "to" không lách được.
+
+- **Rate + budget** (`app/quota.py`): token-bucket in-memory + bảng `usage(ip, day,
+  chars, audio_ms)` trong SQLite (WAL, `busy_timeout`). **Fail-closed:** lỗi DB →
+  từ chối (không cho qua miễn phí). **Reserve-then-refund:** trừ ngân sách trước khi
+  synth, **hoàn lại** nếu request không giao được kết quả (net-zero khi lỗi).
+- **IP chuẩn hoá** (`_normalize_ip`): IPv6 gộp về **/64**, IPv4 giữ /32 — chặn xoay
+  vòng địa chỉ để nhân ngân sách.
+- **Admission control** (`app/limits.py`): `admit(ip)` giới hạn số job đồng thời/IP
+  + hàng đợi trần `MAX_QUEUE_WAITERS`; quá tải → **429 ngay**, chờ slot có timeout
+  (`REQUEST_TIMEOUT_S`) → **không bao giờ treo vô hạn**. Vượt trần ký tự buffered →
+  **400** (trỏ sang `/v1/audio/stream`); ASR quá dài → **413** trước khi tốn CPU.
+- **1 worker bắt buộc:** gate là in-memory + SQLite một-người-ghi. App **từ chối khởi
+  động** khi `ANON_ENABLED=true` và `workers>1` (`app/main.py`), tránh nhân giới hạn
+  theo số worker + `database is locked`.
+
+### 13.3 Streaming văn bản dài — `POST /v1/audio/stream`
+
+Cho "đọc file dài": tách câu (`app/streaming.py::sentence_split`, gói đoạn ≤
+`STREAM_MAX_CHUNK_CHARS`) rồi synth từng đoạn, **đẩy mp3 chảy dần**. Điểm mấu chốt:
+**một container `av` liên tục** (`app/audio/encoder.py::Mp3StreamEncoder`) nạp từng
+frame qua sink write-only — luồng ra là **một file mp3 liền mạch**, không ghép nối
+per-câu (gapless theo thiết kế). Ngân sách **tính theo từng đoạn đã phát** (commit-
+as-you-yield): client ngắt giữa chừng hoặc hết ngân sách → dừng sạch, chỉ trừ phần
+đã đọc. nginx phải `proxy_buffering off` + app gửi `X-Accel-Buffering: no` để không
+bị gom (né 524). Trần tổng theo tier: `ANON_MAX_CHARS_STREAM`.
+
+### 13.4 Cache kết quả
+
+`app/result_cache.py`: buffered-TTS (không phải stream) được cache trên đĩa theo
+khoá SHA1 của `model|voice|text|speed|format|options` → request trùng trả ngay,
+không synth lại. LRU quét nền theo thời gian truy cập, tới trần
+`RESULT_CACHE_MAX_MB` / `RESULT_CACHE_MAX_FILES`. Tắt bằng `RESULT_CACHE_ENABLED=false`.
+
+### 13.5 Chặn CPU đúng chỗ
+
+Giới hạn thread trong app (`INFERENCE_THREADS`, `ASR_CPU_THREADS`) là lớp mềm — riêng
+onnxruntime của VieNeu **có thể bỏ qua** `OMP_NUM_THREADS`. Vì vậy lớp chặn cứng thật
+sự là **systemd `CPUQuota=`/`AllowedCPUs=`** (cgroup/taskset) trong
+`deploy/install-service.sh`: một synth chạy loạn không thể ăn hết 6 nhân và treo máy.
+
+> **Giai đoạn sau:** UI "xịn" (hiện tại chỉ `web/index.html` vanilla để kiểm chứng);
+> progressive playback bằng MediaSource cho stream (nay client test dùng Blob);
+> ngân sách/nhận diện dùng chung nhiều máy (Redis) khi vượt 1 node; đăng nhập +
+> hạn mức theo tài khoản. Stage 1 cố tình giữ **in-memory + SQLite, 1 máy, 1 worker**.
