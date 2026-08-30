@@ -26,6 +26,7 @@ from .client_identity import Identity, Tier
 from .config import Settings, get_settings
 from .limits import Overloaded, admit
 from .logging_config import get_logger
+from .mem import trim_heap
 from .quota import QuotaExceeded, quota
 
 log = get_logger("stream")
@@ -169,3 +170,8 @@ async def synth_stream(
             "stream ip=%s tier=%s chunks=%d chars=%d reason=%s",
             ident.ip, ident.tier.value, len(chunks), streamed_chars, reason,
         )
+        # A stream churns per-chunk synth buffers through glibc's arenas and leaves the
+        # worker at a multi-GB high-water it never returns on its own. Trim here (a fast,
+        # synchronous C call — awaiting is illegal during a disconnect's GeneratorExit) so
+        # idle memory goes back to the OS instead of sitting in swap on this small box.
+        trim_heap()
