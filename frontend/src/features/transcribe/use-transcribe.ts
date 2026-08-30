@@ -20,7 +20,7 @@ export function useTranscribe() {
 
   async function transcribe(nextFile: File) {
     if (!supported.test(nextFile.name)) { setError('format'); setState('error'); return }
-    if (nextFile.size > 50 * 1024 * 1024) { setError('size'); setState('error'); return }
+    if (nextFile.size > 25 * 1024 * 1024) { setError('size'); setState('error'); return }
     if (url.current) URL.revokeObjectURL(url.current)
     url.current = URL.createObjectURL(nextFile)
     setFile(nextFile); setResult(null); setError(''); setState('uploading'); setProgress(0)

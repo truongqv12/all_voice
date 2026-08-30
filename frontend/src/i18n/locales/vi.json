@@ -43,8 +43,8 @@
   "voice.female": "Nữ",
   "voice.male": "Nam",
   "voice.neutral": "Trung tính",
-  "voice.yours": "Giọng của bạn"
-  ,"compose.textLabel": "Nội dung đọc",
+  "voice.yours": "Giọng của bạn",
+  "compose.textLabel": "Nội dung đọc",
   "compose.placeholder": "Dán hoặc viết nội dung bạn muốn chuyển thành giọng nói.",
   "compose.counter": "{{count}} / {{limit}} ký tự",
   "compose.hardLimit": "Nội dung dài quá giới hạn bản mẫu. Hãy rút ngắn trước khi tạo.",
@@ -156,7 +156,6 @@
   "support.dismiss": "Đóng",
   "support.tabVoices": "Danh mục giọng",
   "support.tabCommunity": "Ủng hộ & Hạn mức",
-  "shell.support": "Ủng hộ",
   "shell.serverInfo": "Ủng hộ",
   "limits.rate.title": "Yêu cầu đang được xử lý theo hàng đợi.",
   "limits.rate.description": "Vui lòng chờ giây lát để lượt tạo trước hoàn tất rồi thử lại.",
@@ -165,5 +164,9 @@
   "limits.too-long.title": "Văn bản vượt quá 20.000 ký tự.",
   "limits.too-long.description": "Vui lòng rút ngắn hoặc chia nhỏ văn bản dưới 20.000 ký tự mỗi lần tạo.",
   "transcribe.preview": "XEM TRƯỚC",
-  "transcribe.seconds": "gi"
+  "transcribe.seconds": "gi",
+  "limits.asr-too-long.title": "Audio quá dài.",
+  "limits.asr-too-long.description": "Vui lòng cắt nhỏ audio dưới 5 phút (300 giây) để bóc băng.",
+  "limits.overloaded.title": "Dịch vụ đang quá tải.",
+  "limits.overloaded.description": "Hiện tại dịch vụ ASR/TTS chưa sẵn sàng hoặc đang bận, vui lòng thử lại sau."
 }

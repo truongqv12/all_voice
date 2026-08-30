@@ -43,8 +43,8 @@
   "voice.female": "Female",
   "voice.male": "Male",
   "voice.neutral": "Neutral",
-  "voice.yours": "Your voices"
-  ,"compose.textLabel": "Text to read",
+  "voice.yours": "Your voices",
+  "compose.textLabel": "Text to read",
   "compose.placeholder": "Paste or write the content you want to turn into speech.",
   "compose.counter": "{{count}} / {{limit}} characters",
   "compose.hardLimit": "This prototype text is too long. Shorten it before generating.",
@@ -156,7 +156,6 @@
   "support.dismiss": "Close",
   "support.tabVoices": "Voice Catalog",
   "support.tabCommunity": "Support & Limits",
-  "shell.support": "Support",
   "shell.serverInfo": "Support",
   "limits.rate.title": "Requests are being processed in queue.",
   "limits.rate.description": "Please wait a moment for the previous request to finish before generating again.",
@@ -165,5 +164,9 @@
   "limits.too-long.title": "Text exceeds 20,000 characters.",
   "limits.too-long.description": "Please shorten or split the text into batches under 20,000 characters.",
   "transcribe.preview": "PREVIEW",
-  "transcribe.seconds": "s"
+  "transcribe.seconds": "s",
+  "limits.asr-too-long.title": "Audio too long.",
+  "limits.asr-too-long.description": "Please split the audio into segments under 5 minutes (300 seconds) for transcription.",
+  "limits.overloaded.title": "Service is overloaded.",
+  "limits.overloaded.description": "The ASR/TTS service is currently unavailable or busy, please try again later."
 }
