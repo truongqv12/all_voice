@@ -10,7 +10,7 @@ set -euo pipefail
 
 if [ "$(uname -s)" != "Linux" ]; then
   echo "systemd is Linux-only." >&2
-  echo "macOS: run in the background with launchd, or: nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8123 >> logs/server.log 2>&1 &" >&2
+  echo "macOS: run in the background with launchd, or: nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8123 >> logs/server.log 2>&1 &" >&2
   exit 1
 fi
 if [ "$(id -u)" -ne 0 ]; then
@@ -33,30 +33,69 @@ fi
 
 # Pull HOST/PORT from .env, fall back to safe defaults.
 _env_val() { grep -E "^$1=" "$APP_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '[:space:]'; }
-HOST="$(_env_val HOST)";  HOST="${HOST:-0.0.0.0}"
+# Default HOST is loopback: the API must stay hidden behind nginx + Cloudflare
+# Tunnel, never reachable from the LAN. Set HOST=0.0.0.0 in .env only for a
+# trusted private box. See docs/deployment.md.
+HOST="$(_env_val HOST)";  HOST="${HOST:-127.0.0.1}"
 PORT="$(_env_val PORT)";  PORT="${PORT:-8123}"
+ANON_ENABLED="$(_env_val ANON_ENABLED)"
 # 1 worker by default: each worker loads its own TTS + ASR model into RAM, and
 # inference is CPU-bound (CTranslate2/torch saturate all cores) so extra workers
 # raise memory without adding throughput on this box. Override with WORKERS=N.
 WORKERS="${WORKERS:-1}"
+# Thread + CPU ceiling for the CPU-bound synth/ASR work. OMP_NUM_THREADS caps the
+# OpenMP pools; CPU_QUOTA is a hard cgroup cap so one runaway request can never eat
+# all 6 cores and starve the box (onnxruntime may ignore the thread env — the
+# cgroup cap is the real backstop). 400% = 4 cores' worth, leaving headroom for
+# nginx + the OS. To pin to specific cores instead, set CPU_ALLOWED (e.g. "0-3").
+OMP_THREADS="${OMP_THREADS:-4}"
+CPU_QUOTA="${CPU_QUOTA:-400%}"
+CPU_ALLOWED="${CPU_ALLOWED:-}"
+
+# The anon gate (rate/budget/admission) is per-process in-memory + a single-writer
+# SQLite budget; it only holds with ONE worker. Refuse a footgun combo loudly.
+if [ "${ANON_ENABLED,,}" = "true" ] && [ "$WORKERS" -gt 1 ]; then
+  echo "ERROR: ANON_ENABLED=true needs WORKERS=1 — extra workers multiply every" >&2
+  echo "       per-IP limit by N and cause 'database is locked'. The app itself" >&2
+  echo "       refuses to start in this combo. Set WORKERS=1 or ANON_ENABLED=false." >&2
+  exit 1
+fi
 
 mkdir -p "$APP_DIR/logs"
 chown -R "$RUN_USER" "$APP_DIR/logs" 2>/dev/null || true
 
+# Pick the CPU cap directive: AllowedCPUs (core pinning) if CPU_ALLOWED is set,
+# else the portable CPUQuota. Both are cgroup-enforced by systemd.
+if [ -n "$CPU_ALLOWED" ]; then
+  CPU_CAP="AllowedCPUs=$CPU_ALLOWED"
+else
+  CPU_CAP="CPUQuota=$CPU_QUOTA"
+fi
+
 UNIT=/etc/systemd/system/all-voice.service
-echo "==> Writing $UNIT  (user=$RUN_USER, bind=$HOST:$PORT, workers=$WORKERS)"
+echo "==> Writing $UNIT  (user=$RUN_USER, bind=$HOST:$PORT, workers=$WORKERS, $CPU_CAP)"
 cat > "$UNIT" <<EOF
 [Unit]
 Description=all-voice TTS gateway
 After=network.target
+# Crash-loop backoff: if it dies >5 times in 60s, stop retrying (a wedged model or
+# bad config shouldn't hammer this small box). Clear with: systemctl reset-failed.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=$RUN_USER
 WorkingDirectory=$APP_DIR
+# Cap the OpenMP thread pools before the model loads (belt; the cgroup cap below is
+# the braces since onnxruntime may ignore this).
+Environment=OMP_NUM_THREADS=$OMP_THREADS
+Environment=INFERENCE_THREADS=$OMP_THREADS
 ExecStart=$UV run uvicorn app.main:app --host $HOST --port $PORT --workers $WORKERS
 Restart=always
 RestartSec=3
+# Hard CPU ceiling so one runaway synthesis can't pin all cores and hang the box.
+$CPU_CAP
 # Capture uvicorn + native-crash output (stderr) that the app's app.log can't.
 StandardOutput=append:$APP_DIR/logs/server.log
 StandardError=append:$APP_DIR/logs/server.log

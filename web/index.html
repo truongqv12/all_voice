@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>all-voice — đọc thử</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --fg:#e8eaed; --mut:#9aa0aa; --acc:#4f8cff; --err:#ff6b6b; --ok:#3ddc97; --line:#2a2e37; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:760px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin:0 0 20px; font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:0 0 6px; }
+  select, textarea, input[type=text], input[type=password] {
+    width:100%; background:#0e1014; color:var(--fg); border:1px solid var(--line);
+    border-radius:8px; padding:10px; font:inherit; }
+  textarea { min-height:140px; resize:vertical; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; }
+  .row > div { flex:1 1 180px; }
+  .btns { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  button { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:10px 18px;
+    font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--fg); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:progress; }
+  audio { width:100%; margin-top:14px; }
+  .msg { margin-top:12px; padding:10px 12px; border-radius:8px; font-size:14px; display:none; }
+  .msg.show { display:block; }
+  .msg.err { background:rgba(255,107,107,.12); color:var(--err); border:1px solid rgba(255,107,107,.3); }
+  .msg.ok  { background:rgba(61,220,151,.10); color:var(--ok);  border:1px solid rgba(61,220,151,.3); }
+  .meta { font-size:12px; color:var(--mut); margin-top:6px; }
+  .count { text-align:right; font-size:12px; color:var(--mut); margin-top:4px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>all-voice — đọc thử</h1>
+  <p class="sub">Giao diện kiểm thử tối giản: chọn giọng, nhập/nạp văn bản, nghe bản đọc (buffered) hoặc đọc file dài (stream).</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label for="voice">Giọng</label>
+        <select id="voice"><option>Đang tải…</option></select>
+      </div>
+      <div>
+        <label for="style">Kiểu đọc (tuỳ giọng)</label>
+        <select id="style"><option value="">— mặc định —</option></select>
+      </div>
+    </div>
+    <div class="meta" id="voiceMeta"></div>
+    <div class="btns">
+      <button class="ghost" id="preview" type="button">▶ Nghe thử giọng</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <label for="text">Văn bản</label>
+    <textarea id="text" placeholder="Nhập văn bản cần đọc…">Xin chào, đây là all-voice. Bạn có thể nghe thử giọng đọc ngay tại đây.</textarea>
+    <div class="count"><span id="count">0</span> ký tự</div>
+    <div class="row" style="margin-top:8px">
+      <div>
+        <label for="file">…hoặc nạp file .txt</label>
+        <input type="file" id="file" accept=".txt,text/plain" />
+      </div>
+      <div>
+        <label for="key">API key (tuỳ chọn — bỏ trống để dùng công khai)</label>
+        <input type="password" id="key" placeholder="Bearer key cho tier TRUSTED" autocomplete="off" />
+      </div>
+    </div>
+    <div class="btns">
+      <button id="speak" type="button">🔊 Đọc (buffered)</button>
+      <button id="stream" type="button">📖 Đọc file dài (stream)</button>
+    </div>
+  </div>
+
+  <div class="msg err" id="err"></div>
+  <div class="msg ok"  id="ok"></div>
+  <audio id="player" controls hidden></audio>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const voiceSel = $("voice"), styleSel = $("style"), textEl = $("text");
+const player = $("player"), errEl = $("err"), okEl = $("ok");
+let voices = [];
+let lastUrl = null;  // object URL to revoke before replacing
+
+function showErr(m) { okEl.classList.remove("show"); errEl.textContent = m; errEl.classList.add("show"); }
+function showOk(m)  { errEl.classList.remove("show"); okEl.textContent = m; okEl.classList.add("show"); }
+function clearMsg() { errEl.classList.remove("show"); okEl.classList.remove("show"); }
+
+function authHeaders(extra) {
+  const h = Object.assign({}, extra || {});
+  const k = $("key").value.trim();
+  if (k) h["Authorization"] = "Bearer " + k;
+  return h;
+}
+
+// Turn any error response (OpenAI envelope or plain) into a friendly line.
+async function errorText(res) {
+  let detail = "";
+  try {
+    const j = await res.json();
+    detail = (j.error && j.error.message) || j.detail || JSON.stringify(j);
+  } catch { detail = await res.text().catch(() => ""); }
+  if (res.status === 429) return "429 — quá tải hoặc vượt giới hạn: " + detail;
+  if (res.status === 413) return "413 — nội dung quá lớn: " + detail;
+  if (res.status === 400) return "400 — yêu cầu không hợp lệ: " + detail;
+  if (res.status === 401) return "401 — cần API key hợp lệ: " + detail;
+  return res.status + " — " + (detail || res.statusText);
+}
+
+function selectedVoice() { return voices[voiceSel.value]; }
+
+function refreshStyles() {
+  const v = selectedVoice();
+  styleSel.innerHTML = '<option value="">— mặc định —</option>';
+  if (v && v.styles) for (const s of v.styles) {
+    const o = document.createElement("option"); o.value = s; o.textContent = s; styleSel.appendChild(o);
+  }
+  $("voiceMeta").textContent = v ? `model: ${v.model} · ngôn ngữ: ${v.language} · id: ${v.id}` : "";
+}
+
+async function loadVoices() {
+  try {
+    const res = await fetch("/v1/voices");
+    if (!res.ok) throw new Error(await errorText(res));
+    const data = await res.json();
+    voices = data.data || [];
+    voiceSel.innerHTML = "";
+    if (!voices.length) { voiceSel.innerHTML = "<option>(không có giọng)</option>"; return; }
+    voices.forEach((v, i) => {
+      const o = document.createElement("option");
+      o.value = i; o.textContent = `${v.name} — ${v.model} (${v.language})`;
+      voiceSel.appendChild(o);
+    });
+    refreshStyles();
+  } catch (e) {
+    voiceSel.innerHTML = "<option>(lỗi tải giọng)</option>";
+    showErr("Không tải được danh sách giọng: " + e.message);
+  }
+}
+
+function bodyFor(text) {
+  const v = selectedVoice();
+  const b = { model: v.model, input: text, voice: v.id };
+  if (styleSel.value) b.style = styleSel.value;
+  return b;
+}
+
+function playBlob(blob) {
+  if (lastUrl) URL.revokeObjectURL(lastUrl);
+  lastUrl = URL.createObjectURL(blob);
+  player.src = lastUrl; player.hidden = false; player.play().catch(() => {});
+}
+
+async function synth(path, busyBtn, okLabel) {
+  clearMsg();
+  const v = selectedVoice();
+  if (!v) return showErr("Chưa chọn giọng.");
+  const text = textEl.value.trim();
+  if (!text) return showErr("Chưa có văn bản.");
+  const btns = document.querySelectorAll("button");
+  btns.forEach(b => b.disabled = true);
+  busyBtn.textContent = "⏳ Đang đọc…";
+  try {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(bodyFor(text)),
+    });
+    if (!res.ok) { showErr(await errorText(res)); return; }
+    // Both endpoints return audio/mpeg. For long streams a real web app would use
+    // MediaSource for progressive playback; a Blob is fine for this test harness.
+    playBlob(await res.blob());
+    showOk(okLabel);
+  } catch (e) {
+    showErr("Lỗi mạng: " + e.message);
+  } finally {
+    btns.forEach(b => b.disabled = false);
+    busyBtn.textContent = busyBtn.dataset.label;
+  }
+}
+
+// --- wire up ---
+voiceSel.addEventListener("change", refreshStyles);
+textEl.addEventListener("input", () => $("count").textContent = textEl.value.length);
+$("count").textContent = textEl.value.length;
+
+$("file").addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { textEl.value = r.result; $("count").textContent = textEl.value.length; clearMsg(); };
+  r.onerror = () => showErr("Không đọc được file.");
+  r.readAsText(f);
+});
+
+$("preview").addEventListener("click", () => {
+  const v = selectedVoice(); if (!v) return showErr("Chưa chọn giọng.");
+  clearMsg();
+  // Public preview endpoint (no key). preview_url is provided by /v1/voices.
+  const url = v.preview_url || `/v1/voices/${v.model}/${encodeURIComponent(v.id)}/preview`;
+  if (lastUrl) { URL.revokeObjectURL(lastUrl); lastUrl = null; }
+  player.src = url; player.hidden = false; player.play().catch(() => {});
+});
+
+const speakBtn = $("speak"), streamBtn = $("stream");
+speakBtn.dataset.label = speakBtn.textContent;
+streamBtn.dataset.label = streamBtn.textContent;
+speakBtn.addEventListener("click", () => synth("/v1/audio/speech", speakBtn, "Xong (buffered)."));
+streamBtn.addEventListener("click", () => synth("/v1/audio/stream", streamBtn, "Xong (stream)."));
+
+loadVoices();
+</script>
+</body>
+</html>
