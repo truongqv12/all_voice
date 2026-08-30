@@ -40,7 +40,7 @@ export default function () {
     fast429.add(res.timings.duration < 1000); // a real rate-limit reject returns at once
     check(res, {
       "429 has OpenAI envelope": (r) => {
-        try { return !!JSON.parse(r.body).error.message; } catch { return false; }
+        try { return !!JSON.parse(r.body).error.message; } catch (e) { return false; }
       },
     });
   }

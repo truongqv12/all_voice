@@ -11,7 +11,7 @@ Covers the red-team scenarios k6 leaves out:
   refund   (#4)  reserve-then-refund is net-zero: fire requests that fail AFTER the
                  budget is reserved (bad `style` -> 400) from a fresh IP, then read
                  data/quota.db and assert that IP's `chars` for today is 0.
-  spoof    (#1)  loopback bind + firewall: probe whether :8123 (API) and :8080 (nginx)
+  spoof    (#1)  loopback bind + firewall: probe whether :8124 (API) and :8123 (nginx)
                  are reachable on a target host. From the LAN both must REFUSE — only
                  cloudflared reaches them. (The loopback-gate that ignores a spoofed
                  CF-Connecting-IP from a non-loopback peer is unit-tested in
@@ -25,8 +25,8 @@ Covers the red-team scenarios k6 leaves out:
 
 Usage:
   python scripts/loadtest/assert_stateful.py sample --seconds 90 --interval 2 --out cpu.csv
-  python scripts/loadtest/assert_stateful.py refund  --base http://127.0.0.1:8080 --db data/quota.db
-  python scripts/loadtest/assert_stateful.py counter --base http://127.0.0.1:8080
+  python scripts/loadtest/assert_stateful.py refund  --base http://127.0.0.1:8123 --db data/quota.db
+  python scripts/loadtest/assert_stateful.py counter --base http://127.0.0.1:8123
   python scripts/loadtest/assert_stateful.py spoof   --host 192.168.1.50   # from another LAN machine
 
 Needs httpx (already a project dep): run with `uv run python scripts/loadtest/assert_stateful.py ...`.
@@ -139,10 +139,10 @@ def _is_overloaded(r: httpx.Response) -> bool:
 
 def cmd_spoof(args: argparse.Namespace) -> int:
     host = args.host
-    print(f"[spoof] probing TCP reachability of {host}:8123 (API) and {host}:8080 (nginx)")
-    api = _reachable(host, 8123, args.connect_timeout)
-    edge = _reachable(host, 8080, args.connect_timeout)
-    print(f"[spoof] {host}:8123 reachable={api}   {host}:8080 reachable={edge}")
+    print(f"[spoof] probing TCP reachability of {host}:8124 (API) and {host}:8123 (nginx)")
+    api = _reachable(host, 8124, args.connect_timeout)
+    edge = _reachable(host, 8123, args.connect_timeout)
+    print(f"[spoof] {host}:8124 reachable={api}   {host}:8123 reachable={edge}")
 
     loopback = host in ("127.0.0.1", "::1", "localhost")
     if loopback:
@@ -152,7 +152,7 @@ def cmd_spoof(args: argparse.Namespace) -> int:
     if not api and not edge:
         print("[spoof] PASS: neither port reachable from the LAN — only cloudflared gets in (#1).")
         return 0
-    print("[spoof] FAIL: a port is reachable from the LAN. Bind loopback + `ufw deny 8123/tcp`.")
+    print("[spoof] FAIL: a port is reachable from the LAN. Bind loopback + `ufw deny 8124/tcp`.")
     return 1
 
 
@@ -245,7 +245,7 @@ def main() -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     pr = sub.add_parser("refund", help="scenario 5: reserve-then-refund is net-zero (#4)")
-    pr.add_argument("--base", default="http://127.0.0.1:8080")
+    pr.add_argument("--base", default="http://127.0.0.1:8123")
     pr.add_argument("--db", default="data/quota.db")
     pr.add_argument("--ip", default="198.51.100.55")
     pr.add_argument("--count", type=int, default=15)
@@ -253,12 +253,12 @@ def main() -> int:
     pr.set_defaults(func=cmd_refund)
 
     pc = sub.add_parser("counter", help="scenario 9: per-IP concurrency not leaked (#12)")
-    pc.add_argument("--base", default="http://127.0.0.1:8080")
+    pc.add_argument("--base", default="http://127.0.0.1:8123")
     pc.add_argument("--ip", default="198.51.100.66")
     pc.add_argument("--count", type=int, default=20)
     pc.set_defaults(func=cmd_counter)
 
-    ps = sub.add_parser("spoof", help="scenario 8: :8123/:8080 unreachable from the LAN (#1)")
+    ps = sub.add_parser("spoof", help="scenario 8: :8124/:8123 unreachable from the LAN (#1)")
     ps.add_argument("--host", default="127.0.0.1")
     ps.add_argument("--connect-timeout", type=float, default=3.0)
     ps.set_defaults(func=cmd_spoof)

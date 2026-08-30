@@ -5,11 +5,11 @@ Expose all-voice to the internet with **no inbound ports open** and **no public 
 hostname to your local nginx. All of this is on Cloudflare's free plan.
 
 ```
-internet → Cloudflare edge → cloudflared (outbound) → nginx 127.0.0.1:8080 → API 127.0.0.1:8123
+internet → Cloudflare edge → cloudflared (outbound) → nginx 127.0.0.1:8123 → API 127.0.0.1:8124
 ```
 
 Do the nginx + systemd setup first (`docs/deployment.md`, `deploy/install-service.sh`,
-`deploy/nginx.conf.example`). Confirm `curl http://localhost:8080/v1/models` works
+`deploy/nginx.conf.example`). Confirm `curl http://localhost:8123/v1/models` works
 locally before wiring the tunnel — the tunnel only forwards to nginx.
 
 You need a domain whose nameservers point at Cloudflare (adding a site to Cloudflare
@@ -42,9 +42,14 @@ credentials-file: /home/<user>/.cloudflared/<TUNNEL-ID>.json
 
 ingress:
   - hostname: voice.example.com
-    service: http://localhost:8080      # nginx (which fronts the loopback API)
+    service: http://localhost:8123      # nginx (which fronts the loopback API)
   - service: http_status:404            # catch-all (required last rule)
 ```
+
+> **Token-managed tunnel** (how this box runs): if you start cloudflared with
+> `tunnel run --token …`, the ingress lives in the Cloudflare **Zero Trust dashboard**,
+> not this `config.yml`. Set the hostname's Service to `http://localhost:<nginx-port>`
+> there; nginx must listen on that same port (deploy/nginx.conf.example).
 
 ## 4. Route DNS and run
 
@@ -85,7 +90,7 @@ this zone:
 ## Troubleshooting
 
 - **502/404 from the edge:** nginx isn't up or the ingress `service:` port is wrong.
-  Test `curl http://localhost:8080/v1/models` on the box.
+  Test `curl http://localhost:8123/v1/models` on the box.
 - **524 timeout on long reads:** streaming got buffered somewhere. Ensure
   `proxy_buffering off` in nginx (it is in the example) and that you're calling
   `/v1/audio/stream` for long text.

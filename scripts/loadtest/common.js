@@ -7,9 +7,9 @@
 //   sudo apt update && sudo apt install k6
 //
 // Run a scenario:
-//   BASE_URL=http://127.0.0.1:8080 k6 run scripts/loadtest/throughput.js
+//   BASE_URL=http://127.0.0.1:8123 k6 run scripts/loadtest/throughput.js
 //
-// Target the box through nginx (default :8080), NOT the loopback API directly, so
+// Target the box through nginx (default :8123), NOT the loopback API directly, so
 // the CF-Connecting-IP header is trusted (nginx is the loopback peer) exactly like
 // production. Run the abusive scenarios LOCAL / from another LAN machine — never at
 // the public CF domain, or Cloudflare will (correctly) treat it as an attack.
@@ -17,7 +17,7 @@
 // Env knobs (all optional): BASE_URL, MODEL, VOICE, API_KEY (set = TRUSTED tier,
 // bypasses the gate — leave empty to exercise the anon gate).
 
-export const BASE_URL = __ENV.BASE_URL || "http://127.0.0.1:8080";
+export const BASE_URL = __ENV.BASE_URL || "http://127.0.0.1:8123";
 export const MODEL = __ENV.MODEL || "vieneu";
 export const VOICE = __ENV.VOICE || "Trúc Ly";
 const API_KEY = __ENV.API_KEY || "";
@@ -45,7 +45,10 @@ export function speechBody(chars, extra = {}) {
   let input = "";
   while (input.length < chars) input += seed;
   input = input.slice(0, chars);
-  return JSON.stringify({ model: MODEL, input, voice: VOICE, ...extra });
+  // k6's bundled Babel rejects object spread — merge `extra` explicitly.
+  const body = { model: MODEL, input: input, voice: VOICE };
+  for (const k in extra) body[k] = extra[k];
+  return JSON.stringify(body);
 }
 
 export const isTrusted = !!API_KEY;

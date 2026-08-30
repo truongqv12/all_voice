@@ -33,7 +33,7 @@ Model VieNeu (~313MB) tải tự động ở **request synth đầu tiên** về
 `API_KEYS` (bắt buộc đổi khỏi `dev-key`) · `DEVICE` (cpu/cuda/auto) ·
 `DEFAULT_BACKEND` · `MAX_CONCURRENCY` · `VOICES_DIR` · `HOST` (**mặc định
 `127.0.0.1`** — loopback, ẩn sau nginx; xem "Public qua Cloudflare Tunnel") ·
-`PORT` (mặc định 8123) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
+`PORT` (mặc định 8124) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
 
 Tầng công khai không cần key (anon gate) + streaming + cache kết quả: các biến
 `ANON_ENABLED`, `ANON_RATE_PER_MIN`, `ANON_BURST`, `ANON_CHARS_PER_DAY`,
@@ -101,12 +101,18 @@ Mở dịch vụ ra internet cho **người dùng free, không cần đăng nh�
 **1 máy CPU** mà không sập/treo khi bị lạm dụng. Kiến trúc "1 cửa":
 
 ```
-internet → Cloudflare edge → cloudflared (outbound) → nginx 127.0.0.1:8080 → API 127.0.0.1:8123
+internet → Cloudflare edge → cloudflared (outbound) → nginx 127.0.0.1:8123 → API 127.0.0.1:8124
 ```
+
+> **Ghi chú cổng:** nginx phải nghe đúng cổng mà Cloudflare Tunnel trỏ tới. Máy này
+> tunnel kiểu token, ghim `voice.*` → `localhost:8123` trong dashboard CF, nên nginx lấy
+> `:8123` còn app lùi vào cổng nội bộ `:8124`. Nếu bạn tự quản `config.yml` của tunnel thì
+> trỏ vào cổng nginx bất kỳ cũng được — miễn giữ `listen` (nginx), `service:` (tunnel) và
+> `PORT` (app) khớp nhau.
 
 - **API ẩn hoàn toàn:** `HOST=127.0.0.1` (mặc định) — API chỉ nghe loopback, **không**
   lộ ra LAN. Chỉ nginx (cũng ở localhost) tới được. Ngoài ra chặn thẳng cổng ở
-  firewall: `sudo ufw deny 8123/tcp`.
+  firewall: `sudo ufw deny 8124/tcp`.
 - **nginx là cửa:** serve UI test (`web/index.html`) + proxy `/v1/*` với
   `proxy_buffering off` (cho mp3 stream chảy ngay, né timeout 524 của Cloudflare),
   `client_max_body_size 25m`, và chuyển `CF-Connecting-IP` xuống app. App **chỉ tin**
@@ -180,14 +186,14 @@ sudo apt update && sudo apt install k6
 ```bash
 # tải hợp lệ + đo tài nguyên song song
 uv run python scripts/loadtest/assert_stateful.py sample --seconds 150 --out cpu.csv &
-BASE_URL=http://127.0.0.1:8080 k6 run scripts/loadtest/throughput.js
+BASE_URL=http://127.0.0.1:8123 k6 run scripts/loadtest/throughput.js
 # rate/budget/queue/stream/asr/soak
-BASE_URL=http://127.0.0.1:8080 k6 run scripts/loadtest/rate-limit.js
-BASE_URL=http://127.0.0.1:8080 k6 run scripts/loadtest/queue.js
-BASE_URL=http://127.0.0.1:8080 k6 run scripts/loadtest/soak.js         # ~45 phút
+BASE_URL=http://127.0.0.1:8123 k6 run scripts/loadtest/rate-limit.js
+BASE_URL=http://127.0.0.1:8123 k6 run scripts/loadtest/queue.js
+BASE_URL=http://127.0.0.1:8123 k6 run scripts/loadtest/soak.js         # ~45 phút
 # assertion có-state (refund #4, counter #12, reachability #1)
-uv run python scripts/loadtest/assert_stateful.py refund  --base http://127.0.0.1:8080
-uv run python scripts/loadtest/assert_stateful.py counter --base http://127.0.0.1:8080
+uv run python scripts/loadtest/assert_stateful.py refund  --base http://127.0.0.1:8123
+uv run python scripts/loadtest/assert_stateful.py counter --base http://127.0.0.1:8123
 uv run python scripts/loadtest/assert_stateful.py spoof   --host <IP-LAN-cua-box>   # chạy TỪ máy LAN khác
 ```
 
@@ -208,7 +214,7 @@ nguyên; nếu **có**, giảm `ANON_MAX_CHARS_STREAM` và ghi Open Question (as
 
 ## macOS (không có systemd)
 
-Chạy nền tạm: `nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8123 >> logs/server.log 2>&1 &`.
+Chạy nền tạm: `nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8124 >> logs/server.log 2>&1 &`.
 Bền vững hơn thì dùng `launchd` (tạo `~/Library/LaunchAgents/*.plist`).
 
 ## GPU (tùy chọn, Linux + NVIDIA)

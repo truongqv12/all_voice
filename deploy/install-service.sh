@@ -10,7 +10,7 @@ set -euo pipefail
 
 if [ "$(uname -s)" != "Linux" ]; then
   echo "systemd is Linux-only." >&2
-  echo "macOS: run in the background with launchd, or: nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8123 >> logs/server.log 2>&1 &" >&2
+  echo "macOS: run in the background with launchd, or: nohup uv run uvicorn app.main:app --host 127.0.0.1 --port 8124 >> logs/server.log 2>&1 &" >&2
   exit 1
 fi
 if [ "$(id -u)" -ne 0 ]; then
@@ -37,7 +37,7 @@ _env_val() { grep -E "^$1=" "$APP_DIR/.env" 2>/dev/null | tail -1 | cut -d= -f2-
 # Tunnel, never reachable from the LAN. Set HOST=0.0.0.0 in .env only for a
 # trusted private box. See docs/deployment.md.
 HOST="$(_env_val HOST)";  HOST="${HOST:-127.0.0.1}"
-PORT="$(_env_val PORT)";  PORT="${PORT:-8123}"
+PORT="$(_env_val PORT)";  PORT="${PORT:-8124}"
 ANON_ENABLED="$(_env_val ANON_ENABLED)"
 # 1 worker by default: each worker loads its own TTS + ASR model into RAM, and
 # inference is CPU-bound (CTranslate2/torch saturate all cores) so extra workers
@@ -91,6 +91,12 @@ WorkingDirectory=$APP_DIR
 # the braces since onnxruntime may ignore this).
 Environment=OMP_NUM_THREADS=$OMP_THREADS
 Environment=INFERENCE_THREADS=$OMP_THREADS
+# Cap glibc malloc arenas. Under a concurrency spike the anyio threadpool spawns many
+# threads; glibc gives each its own arena and never returns that memory to the OS, so
+# RSS balloons to a high-water mark (seen ~7GB after a 40-request burst) and stays there.
+# Synthesis is serialized (max_concurrency=1) so 2 arenas are plenty — this keeps the
+# burst peak bounded on this 11GB box.
+Environment=MALLOC_ARENA_MAX=2
 ExecStart=$UV run uvicorn app.main:app --host $HOST --port $PORT --workers $WORKERS
 Restart=always
 RestartSec=3

@@ -427,8 +427,8 @@ endpoint **streaming** cho văn bản dài. Bật bằng `ANON_ENABLED=true`.
 flowchart LR
     Net["internet"] --> Edge["Cloudflare edge<br/>(rate-rule + WAF + Bot Fight)"]
     Edge -->|"tunnel (outbound, 0 port inbound)"| CFd["cloudflared"]
-    CFd --> Nginx["nginx 127.0.0.1:8080<br/>buffering off · body cap · CF-Connecting-IP"]
-    Nginx --> API["API 127.0.0.1:8123<br/>(loopback — ẩn khỏi LAN)"]
+    CFd --> Nginx["nginx 127.0.0.1:8123<br/>buffering off · body cap · CF-Connecting-IP"]
+    Nginx --> API["API 127.0.0.1:8124<br/>(loopback — ẩn khỏi LAN)"]
 ```
 
 API bind **loopback** (`HOST=127.0.0.1`, mặc định fail-closed) → chỉ nginx tới được.

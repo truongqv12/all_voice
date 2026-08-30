@@ -1,7 +1,13 @@
 # all-voice reverse proxy — the ONLY thing that reaches the API.
 #
-# Topology:  Cloudflare Tunnel (cloudflared) → nginx (127.0.0.1:8080) → API (127.0.0.1:8123)
+# Topology:  Cloudflare Tunnel (cloudflared) → nginx (127.0.0.1:8123) → API (127.0.0.1:8124)
 # The API binds loopback and is never exposed; nginx serves the test UI and proxies /v1/*.
+#
+# Port choice: nginx must listen on whatever port the Cloudflare Tunnel forwards to.
+# On this box the tunnel is token-managed and pinned to :8123 in the Cloudflare
+# dashboard, so nginx takes :8123 and the API moves to an internal :8124. If you own
+# the tunnel config (deploy/cloudflare-tunnel.md) you may instead point it at any nginx
+# port; just keep nginx's `listen`, the tunnel's `service:`, and the app's PORT in step.
 #
 # Install:
 #   sudo apt install nginx
@@ -12,11 +18,13 @@
 #   sudo nginx -t && sudo systemctl reload nginx
 #
 # Firewall the API port from the LAN too (defence in depth — nginx already fronts it):
-#   sudo ufw deny 8123/tcp
+#   sudo ufw deny 8124/tcp
 
 server {
     # Loopback only: cloudflared dials in here; nothing on the LAN can reach it.
-    listen 127.0.0.1:8080;
+    # localhost resolves to ::1 first on many boxes, so listen on both loopbacks.
+    listen 127.0.0.1:8123;
+    listen [::1]:8123;
     server_name _;
 
     # ASR uploads (Whisper) — keep in step with the app's own body-size checks.
@@ -30,7 +38,7 @@ server {
     }
 
     location /v1/ {
-        proxy_pass http://127.0.0.1:8123;
+        proxy_pass http://127.0.0.1:8124;
         proxy_http_version 1.1;
 
         # Real client IP for the app's per-IP gate. nginx is the loopback peer, so
