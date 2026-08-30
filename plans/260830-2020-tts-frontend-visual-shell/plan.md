@@ -138,8 +138,9 @@ Mỗi phase khi chạy để bạn kiểm tra sẽ mở đúng **:5273**; dừng
 Long-run cook cả 7 phase, nhưng **có checkpoint vision giữa chừng**:
 
 - **Git:** nhánh `feat/tts-frontend-visual-shell` (plan đã commit trước khi cook).
-- **Checkpoint sau phase 3:** dựng **subset harness capture của phase 7** (Playwright) + chạy **`agy` vision 1 lượt đa thiết bị** (breakpoints 375/768/1024/1440 × light/dark) trên shell + TTS core → report `plans/reports/visual-review-checkpoint-*.md` → **DỪNG cho user soi lỗi giao diện bằng vision** trước khi cook phase 4-7. Finding "AI-slop/rối/contrast" ở đây vòng lại sửa ngay (rẻ hơn vì ASR/Cloning chưa đắp lên cùng design-language).
-- **Phase 7:** vision review đầy đủ **3 khu** (cổng cuối) như mô tả trong `phase-07-e2e-visual-qa.md`.
+- **Vision-fix LOOP (tự sửa — dùng ở checkpoint phase-3 và phase-7):** `capture` ma trận đa thiết bị (375/768/1024/1440 × light/dark) → **`agy` vision** trả findings (severity + vị trí + đề xuất) → **TỰ SỬA** finding nghiêm trọng (AI-slop / vỡ layout / contrast fail / cuộn ngang / rối / touch-target) → **re-capture → re-review** → lặp tới **hội tụ** (không còn finding nghiêm trọng) hoặc chạm **trần 4 vòng**. Mỗi vòng ghi `plans/reports/visual-review-*.md` (điểm + finding + ảnh + diff đã sửa).
+- **Checkpoint sau phase 3:** chạy vision-fix loop trên **subset harness (Playwright) của phase 7** cho **shell + TTS core** — bắt lỗi design sớm (rẻ hơn trước khi ASR/Cloning đắp lên cùng design-language). Hội tụ → **tự tiếp phase 4-7**; nếu quá 4 vòng chưa sạch → **dừng, báo user** finding còn lại.
+- **Phase 7:** chạy vision-fix loop trên **đủ 3 khu** (cổng cuối); hội tụ → verdict "đẹp"; còn finding sau trần → liệt kê rõ cho user.
 - **Scope guard:** ở mỗi ranh giới phase, đối chiếu việc làm với Contract; lệch vật chất → dừng hỏi user; không kết thúc dưới scope; không làm yếu test để đạt điều kiện dừng.
 
 ## Open questions
