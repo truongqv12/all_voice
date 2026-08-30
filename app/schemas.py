@@ -111,7 +111,7 @@ class VoiceInfo(BaseModel):
     styles: list[str] = Field(default_factory=list)
     preview_url: str = Field(
         default="",
-        description="Đường dẫn nghe thử (mp3). Preset: không cần key; clone: cần `Authorization: Bearer`.",
+        description="Đường dẫn nghe thử (mp3) — công khai, không cần key (cả preset lẫn clone).",
     )
     preview_base64: str | None = Field(
         default=None,

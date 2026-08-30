@@ -135,6 +135,9 @@ default `/v1/voices` shape beyond additive fields.
 
 **Intentional public-contract change:** the accepted design makes preset previews public, which broke `test_openapi_uses_bearer_security_scheme` (it required a Bearer scheme on *every* `/v1/*` op). Relaxed **only** the security-scheme assertion for `/v1/voices/{model}/{voice_id}/preview`; every other route and the no-`Authorization`-header-param check (all routes) stay enforced.
 
+### Follow-up — 2026-08-30 (user decision): all previews public
+The user reversed red-team findings 6/7: **clone previews are now public too** (no key), so a UI "nghe thử" button works straight off `preview_url` for every voice. The preview route is uniformly public (`public, max-age=86400`) — the clone key-gate, the `is_clone` sidecar field + monotonic logic, and `sidecar_marks_clone` were removed (dead once clones are public), along with the H1 divergence regression test (moot). Tradeoff accepted by the user: anyone holding a clone's exact preview URL can play the cloned timbre with no key (ids are still not enumerable via the public route). Re-gating later is a small change in `voice_preview`.
+
 ## Red Team Review
 
 ### Session — 2026-08-30

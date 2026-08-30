@@ -118,37 +118,16 @@ def test_preset_preview_public(previews_tmp, with_fake_backend):
     assert len(r.content) > 0
 
 
-def test_clone_preview_requires_key(previews_tmp, with_fake_backend):
+def test_clone_preview_public(previews_tmp, with_fake_backend):
+    # Clone previews are public too (no key) so a browser <audio src> plays them.
     vid = _enrol_clone()
     previews.ensure_preview("faketts", vid)  # warm deterministically
 
-    no_key = client.get(f"/v1/voices/faketts/{vid}/preview")
-    assert no_key.status_code == 401
-    assert no_key.json()["error"]["code"] == "invalid_api_key"
-
-    with_key = client.get(f"/v1/voices/faketts/{vid}/preview", headers=AUTH)
-    assert with_key.status_code == 200, with_key.text
-    assert "no-store" in with_key.headers["cache-control"]
-
-
-def test_clone_preview_stays_keyed_when_store_record_gone(previews_tmp, with_fake_backend):
-    # Divergence: the cached clone artifact persists (sidecar marks it a clone) but
-    # the live voice_store record is gone (e.g. a multi-worker delete, or an
-    # orphan). The route must fail closed and still demand a key — never serve the
-    # cloned-voice audio publicly.
-    vid = _enrol_clone()
-    previews.ensure_preview("faketts", vid)  # warm -> sidecar is_clone=True
-    assert previews.sidecar_marks_clone("faketts", vid)
-
-    voice_store.delete(vid)  # drop the store record only; artifact + backend entry remain
-    assert voice_store.get(vid) is None
-
-    no_key = client.get(f"/v1/voices/faketts/{vid}/preview")
-    assert no_key.status_code == 401, no_key.text
-
-    with_key = client.get(f"/v1/voices/faketts/{vid}/preview", headers=AUTH)
-    assert with_key.status_code == 200, with_key.text
-    assert "no-store" in with_key.headers["cache-control"]
+    r = client.get(f"/v1/voices/faketts/{vid}/preview")  # no AUTH header
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "audio/mpeg"
+    assert "public" in r.headers["cache-control"]
+    assert len(r.content) > 0
 
 
 def test_base64_cached_only(previews_tmp, with_fake_backend):

@@ -192,19 +192,10 @@ def ensure_preview(model: str, voice_id: str, *, force: bool = False) -> Path | 
                 return None
         if _find_voice(model, voice_id) is None:  # deleted mid-synth -> don't publish an orphan
             return None
-        # Record clone-ness on the artifact so the serving route gates on the
-        # cached file, not only live store membership — a store/backend divergence
-        # (multi-worker post-delete, an orphan) can never downgrade a clone preview
-        # to public. Monotonic per artifact: once a clone, a regeneration keeps the
-        # marking even where the live store record has gone (a divergent worker);
-        # delete removes the sidecar, so a genuinely reused id starts fresh.
-        prior = _read_sidecar(path)
-        is_clone = (voice_store.get(voice_id) is not None) or bool(prior and prior.get("is_clone"))
         _atomic_write(path, audio)
         _write_sidecar(path, {
             "text_hash": th, "language": voice.language, "style": "",
             "format": _FMT, "voice_id": voice_id, "model": model,
-            "is_clone": is_clone,
         })
         return path
 
@@ -220,14 +211,6 @@ def preview_b64_if_current(model: str, voice_id: str) -> str | None:
     keeps `?preview=base64` from doing full-catalog inline synth on a cold cache."""
     p = preview_path(model, voice_id)
     return base64.b64encode(p.read_bytes()).decode() if is_current(p) else None
-
-
-def sidecar_marks_clone(model: str, voice_id: str) -> bool:
-    """True if a cached preview's sidecar records it as a clone. Lets the serving
-    route fail closed: a clone artifact stays key-gated even if the live
-    voice_store record has since gone (multi-worker delete, orphan)."""
-    meta = _read_sidecar(preview_path(model, voice_id))
-    return bool(meta and meta.get("is_clone"))
 
 
 def remove_preview(model: str, voice_id: str) -> None:

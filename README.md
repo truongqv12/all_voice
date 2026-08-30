@@ -143,7 +143,7 @@ Mọi route `/v1/*` cần header `Authorization: Bearer <key>`.
 | `POST` | `/v1/audio/transcriptions` | Nhận dạng giọng → transcript + phụ đề (cần extra `asr`) |
 | `GET`  | `/v1/models` | Liệt kê các backend đã đăng ký |
 | `GET`  | `/v1/voices` | Liệt kê giọng preset + giọng clone (mọi backend) |
-| `GET`  | `/v1/voices/{model}/{voice_id}/preview` | Nghe thử giọng (mp3). Preset: công khai; clone: cần key |
+| `GET`  | `/v1/voices/{model}/{voice_id}/preview` | Nghe thử giọng (mp3) — công khai, không cần key (preset + clone) |
 | `POST` | `/v1/audio/voices` | Tạo giọng clone (multipart) |
 | `GET` · `DELETE` | `/v1/audio/voices/{id}` | Lấy / xóa một giọng clone |
 | `POST` | `/v1/audio/voice_consents` | Cấp consent id (để tương thích OpenAI) |
@@ -179,8 +179,10 @@ curl -s http://localhost:8123/v1/voices/vieneu/<voice_id>/preview -o preview.mp3
 <audio src="http://localhost:8123/v1/voices/vieneu/<voice_id>/preview" controls></audio>
 ```
 
-- **Giọng clone cần `Authorization: Bearer <key>`** (preview clone tái tạo chất
-  giọng thật của một người → không public). Không key → `401`.
+- **Cả giọng clone cũng công khai** — cùng URL, không cần key, nên nút "nghe thử"
+  trên UI chạy thẳng từ `preview_url` trong danh sách. (Lưu ý: preview clone tái
+  tạo chất giọng thật của một người; nếu cần siết lại, xem `voice_preview` trong
+  `app/routers/voices.py`.)
 - `GET /v1/voices?preview=base64` nhúng luôn `preview_base64` cho các giọng **đã
   cache sẵn** (giọng chưa warm trả `null` — lời gọi list không bao giờ tự synth).
 - Preview của backend mặc định + giọng clone được warm sẵn lúc khởi động (chạy
