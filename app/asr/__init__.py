@@ -20,6 +20,7 @@ from .transcriber import (
     TranscriptionResult,
     Word,
     is_available,
+    probe_duration,
     transcribe,
 )
 
@@ -31,6 +32,7 @@ __all__ = [
     "Word",
     "format_timestamp",
     "is_available",
+    "probe_duration",
     "to_json",
     "to_srt",
     "to_verbose_json",

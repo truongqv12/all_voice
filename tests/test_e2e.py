@@ -31,12 +31,19 @@ def test_openapi_reports_application_version():
     assert schema["info"]["version"] == "0.1.1"
 
 
-def test_auth_required():
-    assert client.get("/v1/models").status_code == 401
-    assert client.get("/v1/voices").status_code == 401
-    r = client.post("/v1/audio/speech", json={"model": "vieneu", "input": "hi", "voice": "x"})
-    assert r.status_code == 401
-    assert "error" in r.json()
+def test_public_discovery_and_clone_guard():
+    # Discovery is public (Stage-1 anon share): no key needed to see models/voices.
+    assert client.get("/v1/models").status_code == 200
+    assert client.get("/v1/voices").status_code == 200
+    # Clone CRUD stays key-guarded even with anon TTS/ASR open.
+    assert client.get("/v1/audio/voices").status_code == 401
+    created = client.post(
+        "/v1/audio/voices",
+        files={"audio_sample": ("s.wav", b"RIFFxxxx", "audio/wav")},
+        data={"name": "NoKey"},
+    )
+    assert created.status_code == 401
+    assert "error" in created.json()
 
 
 def test_openapi_uses_bearer_security_scheme():
@@ -45,15 +52,21 @@ def test_openapi_uses_bearer_security_scheme():
 
     assert bearer["type"] == "http"
     assert bearer["scheme"] == "bearer"
-    # The voice-preview endpoint is intentionally public for preset voices so a
-    # browser <audio src> plays them with no header; clone previews are guarded
-    # inside the handler against the same api_key_set, not via the OpenAPI scheme.
-    public_preview_path = "/v1/voices/{model}/{voice_id}/preview"
+    # Public routes carry no bearer requirement: the voice-preview endpoint (a
+    # browser <audio src> plays it with no header) and Stage-1 discovery
+    # (/v1/voices, /v1/models are open so anon clients can list before choosing).
+    # Anon TTS/ASR/stream still DECLARE the optional bearer scheme (a valid key is
+    # the higher TRUSTED tier), so they keep the requirement in the schema.
+    public_paths = {
+        "/v1/voices/{model}/{voice_id}/preview",
+        "/v1/voices",
+        "/v1/models",
+    }
     for path, path_item in schema["paths"].items():
         if not path.startswith("/v1/"):
             continue
         for operation in path_item.values():
-            if path != public_preview_path:
+            if path not in public_paths:
                 assert {"BearerAuth": []} in operation["security"]
             # No route may declare an Authorization header parameter (the bearer
             # scheme, or the preview handler's manual check, owns that header).

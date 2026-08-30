@@ -93,11 +93,15 @@ def test_asr_unavailable_returns_503(monkeypatch):
     assert r.json()["error"]["code"] == "asr_unavailable"
 
 
-def test_transcriptions_auth_required():
+def test_transcriptions_anon_allowed():
+    # Stage-1: ASR runs without a key (ANON tier). A keyless request is no longer
+    # 401 — it reaches the pipeline and 400s only because the bytes aren't audio,
+    # proving it passed the gate rather than being rejected for a missing key.
     r = client.post(
         "/v1/audio/transcriptions", files={"file": ("a.wav", b"x", "audio/wav")}
     )
-    assert r.status_code == 401
+    assert r.status_code == 400
+    assert r.json()["error"]["code"] == "invalid_audio_file"
 
 
 def test_empty_file_400():

@@ -103,6 +103,53 @@ class SpeechRequest(BaseModel):
         return v
 
 
+class StreamSpeechRequest(BaseModel):
+    """Body của POST /v1/audio/stream (phần mở rộng all-voice cho đọc file dài).
+
+    Giống `SpeechRequest` nhưng `input` KHÔNG bị chặn 4096 ký tự ở schema — router
+    áp trần theo tier (`anon_max_chars_stream`). Luôn trả `audio/mpeg` (stream)."""
+
+    model: str = Field(
+        description="Tên backend (vd `vieneu`). Tên lạ route về backend mặc định.",
+        examples=["vieneu"],
+    )
+    input: str = Field(
+        min_length=1,
+        description="Văn bản dài cần đọc (tách câu + stream mp3). Trần tổng theo tier.",
+        examples=["Chương một. Ngày xửa ngày xưa..."],
+    )
+    voice: str | dict[str, Any] = Field(
+        description="Tên preset, id giọng clone (`voice_...`), hoặc object `{\"id\": ...}`.",
+        examples=["Trúc Ly"],
+    )
+    style: str | None = Field(
+        default=None,
+        description="Kiểu đọc; giá trị hợp lệ do backend quy định (VieNeu: tu_nhien / tin_tuc / doc_truyen).",
+    )
+    extra: dict[str, Any] | None = Field(
+        default=None, description="Tham số riêng của backend (qua extra_body).",
+    )
+
+    _OPTION_KEYS = ("style",)
+
+    def backend_options(self) -> dict[str, Any]:
+        opts = dict(self.extra or {})
+        for k in self._OPTION_KEYS:
+            if (v := getattr(self, k)) is not None:
+                opts[k] = v
+        return opts
+
+    @field_validator("voice")
+    @classmethod
+    def _normalize_voice(cls, v: str | dict[str, Any]) -> str:
+        if isinstance(v, dict):
+            voice_id = v.get("id")
+            if not voice_id:
+                raise ValueError("voice object must contain a non-empty 'id'")
+            return str(voice_id)
+        return v
+
+
 class VoiceInfo(BaseModel):
     id: str
     name: str

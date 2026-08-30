@@ -8,13 +8,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from . import __version__, asr
+from . import __version__, asr, result_cache
 from .backends.registry import registry
 from .backends.vieneu_backend import VieNeuBackend
+from .client_identity import client_ip
 from .config import get_settings
 from .docs_ui import get_audio_swagger_ui_html
+from .limits import GateError
 from .logging_config import get_logger, setup_logging
-from .routers import models, speech, transcriptions, voices, voices_admin
+from .routers import models, speech, speech_stream, transcriptions, voices, voices_admin
 from .voice_store import voice_store
 
 
@@ -78,7 +80,12 @@ ngôn ngữ và tự xuất hiện trong `/v1/models` + `/v1/voices` khi asset �
 **VOICEVOX** (tiếng Nhật, giọng preset). VieNeu là backend **mặc định** cho các tên
 `model` kiểu OpenAI. Chọn ngôn ngữ bằng cách chọn `model` + `voice`.
 
-**Xác thực** — mọi route `/v1/*` cần `Authorization: Bearer <key>` (key lấy từ biến môi trường `API_KEYS`).
+**Xác thực & tầng truy cập** — khi `ANON_ENABLED=true`, `/v1/audio/speech`, `/v1/audio/stream`
+và `/v1/audio/transcriptions` chạy **không cần key** (tầng ANON: rate-limit + budget/ngày
+theo IP). Gửi `Authorization: Bearer <key>` (key trong `API_KEYS`) để lên tầng **TRUSTED**
+(bỏ qua giới hạn). Khám phá (`GET /v1/voices`, `/v1/models`, nghe thử) **công khai**; tạo/
+sửa/xóa giọng clone (`/v1/audio/voices*`) **luôn cần key**. Khi `ANON_ENABLED=false`, mọi
+route `/v1/*` (trừ khám phá) cần key.
 
 **Tương thích OpenAI** — SDK `openai` gốc chạy không cần sửa: `model` lạ (vd `tts-1`)
 route về backend mặc định, `voice` lạ/kiểu `alloy` rơi về giọng preset đầu tiên.
@@ -102,6 +109,17 @@ def create_app() -> FastAPI:
     settings = get_settings()
     setup_logging(settings.log_level, settings.log_dir)
     log = get_logger("startup")
+
+    # The anon gate (rate/budget/concurrency) is per-process in-memory + SQLite
+    # single-writer, so more than one worker multiplies every limit by N and races
+    # the quota DB. Refuse to start in that unsafe combination (#5) — fail-closed
+    # rather than silently un-protecting the box.
+    if settings.anon_enabled and settings.workers > 1:
+        raise RuntimeError(
+            f"ANON_ENABLED=true requires WORKERS=1 (got {settings.workers}): the "
+            "in-memory rate/budget gate and single-writer SQLite quota are not "
+            "safe across workers. Run one worker, or disable anon access."
+        )
 
     app = FastAPI(
         title="all-voice",
@@ -129,7 +147,23 @@ def create_app() -> FastAPI:
         threading.Thread(target=previews.warm_startup, name="preview-warm", daemon=True).start()
         log.info("preview warm started (background, default backend + clones)")
 
+    # Background result-cache eviction: an off-hot-path daemon sweep that trims the
+    # cache to its size/count ceilings (previews has no size LRU — this is new).
+    if settings.result_cache_enabled:
+        import threading
+
+        def _cache_sweeper() -> None:
+            while True:
+                time.sleep(300)
+                try:
+                    result_cache.evict()
+                except Exception as exc:  # a sweep error must never kill the box
+                    log.warning("result cache sweep failed: %s", exc)
+
+        threading.Thread(target=_cache_sweeper, name="cache-evict", daemon=True).start()
+
     app.include_router(speech.router, prefix="/v1")
+    app.include_router(speech_stream.router, prefix="/v1")
     app.include_router(transcriptions.router, prefix="/v1")
     app.include_router(voices.router, prefix="/v1")
     app.include_router(voices_admin.router, prefix="/v1")
@@ -142,7 +176,11 @@ def create_app() -> FastAPI:
         start = time.perf_counter()
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
-        req_log.info("%s %s -> %d (%.0fms)", request.method, request.url.path, response.status_code, elapsed_ms)
+        req_log.info(
+            "%s %s ip=%s -> %d (%.0fms)",
+            request.method, request.url.path, client_ip(request, settings),
+            response.status_code, elapsed_ms,
+        )
         return response
 
     @app.exception_handler(HTTPException)
@@ -153,6 +191,14 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=exc.status_code,
             content={"error": {"message": str(detail), "type": "invalid_request_error"}},
+        )
+
+    @app.exception_handler(GateError)
+    async def _gate_rejected(_: Request, exc: GateError) -> JSONResponse:
+        # Rate limit / budget / overload -> 429 with the OpenAI error envelope.
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"error": {"message": str(exc), "type": "rate_limit_error", "code": exc.code}},
         )
 
     @app.exception_handler(RequestValidationError)

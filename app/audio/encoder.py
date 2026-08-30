@@ -95,3 +95,82 @@ def encode(pcm: np.ndarray, sample_rate: int, fmt: str) -> bytes:
     if fmt in _AV_FORMATS:
         return _encode_av(pcm, sample_rate, fmt)
     raise KeyError(fmt)
+
+
+class _ChunkSink:
+    """Write-only file object PyAV muxes into. Collects written bytes so the
+    streaming encoder can drain them as they appear. Declared non-seekable so the
+    MP3 muxer skips the Xing/Info header it would otherwise seek back to write —
+    exactly what a live stream wants."""
+
+    def __init__(self) -> None:
+        self._chunks: list[bytes] = []
+        self._pos = 0
+
+    def write(self, b) -> int:
+        data = bytes(b)
+        self._chunks.append(data)
+        self._pos += len(data)
+        return len(data)
+
+    def drain(self) -> bytes:
+        if not self._chunks:
+            return b""
+        out = b"".join(self._chunks)
+        self._chunks.clear()
+        return out
+
+    def seekable(self) -> bool:
+        return False
+
+    def tell(self) -> int:
+        return self._pos
+
+    def flush(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class Mp3StreamEncoder:
+    """Encode a sequence of PCM chunks into ONE continuous MP3 stream.
+
+    Feeding every sentence through a single container (one header, one codec
+    context) yields a gapless MP3 that a browser `<audio>` plays without the
+    stutter/gap that concatenating independent per-sentence MP3 files causes (#14).
+    Call `encode_pcm()` per chunk (yields whatever bytes are ready) and `close()`
+    once at the end (flushes the encoder tail)."""
+
+    def __init__(self, sample_rate: int) -> None:
+        self._rate = sample_rate
+        self._sink = _ChunkSink()
+        self._container = av.open(self._sink, mode="w", format="mp3")
+        self._stream = self._container.add_stream("mp3", rate=sample_rate)
+        self._fifo = av.audio.fifo.AudioFifo()
+        self._frame_size = getattr(self._stream, "frame_size", 0) or 1152
+        self._closed = False
+
+    def encode_pcm(self, pcm: np.ndarray) -> bytes:
+        pcm = np.asarray(pcm, dtype=np.float32).reshape(-1)
+        self._fifo.write(_make_frame(pcm, self._rate, "fltp"))
+        while self._fifo.samples >= self._frame_size:
+            for packet in self._stream.encode(self._fifo.read(self._frame_size)):
+                self._container.mux(packet)
+        return self._sink.drain()
+
+    def close(self) -> bytes:
+        """Flush the remaining samples + encoder delay and close the container.
+        Idempotent — a second call returns no bytes."""
+        if self._closed:
+            return b""
+        self._closed = True
+        try:
+            if self._fifo.samples > 0:
+                for packet in self._stream.encode(self._fifo.read()):
+                    self._container.mux(packet)
+            for packet in self._stream.encode(None):  # flush encoder
+                self._container.mux(packet)
+        finally:
+            self._container.close()
+        return self._sink.drain()

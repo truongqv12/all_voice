@@ -6,11 +6,10 @@ Custom extension (not part of the OpenAI spec) for voice discovery."""
 from __future__ import annotations
 
 import anyio
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from .. import previews
-from ..auth import require_api_key
 from ..backends.registry import registry
 from ..schemas import VoiceInfo, VoiceList
 
@@ -22,7 +21,6 @@ async def list_voices(
     model: str | None = Query(None, description="Chỉ giọng của backend này (vd `vieneu`, `kokoro`, `voicevox`)."),
     language: str | None = Query(None, description="Chỉ giọng theo ngôn ngữ này (vd `vi`, `en`, `ja`)."),
     preview: str | None = Query(None, description="`base64` để nhúng mp3 (chỉ preview đã cache)."),
-    _key: str = Depends(require_api_key),
 ) -> VoiceList:
     # Additive filters: no params -> every voice, as before. An unmatched filter
     # returns an empty list (discovery-friendly), not an error.

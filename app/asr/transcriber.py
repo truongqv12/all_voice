@@ -101,8 +101,37 @@ def _get_model():
             settings.asr_model,
             device=_resolve_device(settings.device),
             compute_type=settings.asr_compute_type,
+            # Cap CTranslate2 threads explicitly (a real, honoured knob) so ASR
+            # leaves cores for the event loop + tunnel on the 6-core box.
+            cpu_threads=settings.asr_cpu_threads,
         )
         return _model
+
+
+def probe_duration(audio_bytes: bytes) -> float:
+    """Audio duration in **seconds**, read from the container header without
+    decoding the whole file — cheap enough to run before spending CPU on a
+    transcribe (used to reject over-long ANON uploads early, #7).
+
+    `container.duration` is in microseconds (AV_TIME_BASE), hence `/ 1e6` (#6).
+    Returns 0.0 when the header carries no duration (rare containers); the caller
+    then falls back to the real duration reconciled after transcription.
+    Raises `InvalidAudioError` when the bytes aren't decodable audio at all."""
+    import io
+
+    import av
+
+    try:
+        with av.open(io.BytesIO(audio_bytes)) as container:
+            if container.duration is not None:
+                return max(0.0, container.duration / 1e6)
+            best = 0.0
+            for stream in container.streams:
+                if stream.duration is not None and stream.time_base is not None:
+                    best = max(best, float(stream.duration * stream.time_base))
+            return best
+    except (FFmpegError, ValueError) as exc:
+        raise InvalidAudioError("Could not decode the audio file.") from exc
 
 
 def transcribe(
