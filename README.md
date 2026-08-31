@@ -15,14 +15,15 @@ Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [
 
 <br/>
 
-<img src="assets/screenshots/tts-page.png" alt="TTS Page" width="800">
+### 📱 Giao diện đa nền tảng
 
-<p align="center">
-  <img src="assets/screenshots/clone-page.png" alt="Clone Page" width="49%">
-  <img src="assets/screenshots/transcribe-page.png" alt="Transcribe Page" width="49%">
-</p>
+| Tính năng | Desktop | Mobile |
+| :--- | :---: | :---: |
+| **Sinh giọng nói (TTS)** | <img src="./assets/screenshots/tts-page-desktop.png" width="600"> | <img src="./assets/screenshots/tts-page-mobile.png" width="200"> |
+| **Nhân bản giọng (Clone)** | <img src="./assets/screenshots/clone-page-desktop.png" width="600"> | <img src="./assets/screenshots/clone-page-mobile.png" width="200"> |
+| **Tạo phụ đề (Transcribe)**| <img src="./assets/screenshots/transcribe-page-desktop.png" width="600"> | <img src="./assets/screenshots/transcribe-page-mobile.png" width="200"> |
 
-*Giao diện Frontend của ứng dụng với tính năng Sinh giọng nói (TTS), Tạo phụ đề (Transcribe) và Nhân bản giọng nói (Clone).*
+<br/>
 
 </div>
 
@@ -86,7 +87,7 @@ Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả phát tr
 Hoặc quét mã QR dưới đây để ủng hộ trực tiếp qua Vietcombank:
 
 <p align="center">
-  <img src="assets/screenshots/vcb-qr.png" alt="Donate VietQR VCB 1062811353" width="300">
+  <img src="./assets/screenshots/vcb-qr.png" alt="Donate VietQR VCB 1062811353" width="300">
 </p>
 
 Cảm ơn bạn rất nhiều!
