@@ -4,7 +4,7 @@
 
 **OpenAI-Compatible Text-to-Speech API, Multi-engine — VieNeu (Vietnamese) · Kokoro (English) · VOICEVOX (Japanese), CPU-First**
 
-[Tiếng Việt](README.md) | English | [Architecture & Extensions](docs/kien-truc-va-mo-rong.md) | [Deployment](docs/deployment.md) | [API Reference](docs/api-reference.md)
+[Tiếng Việt](README.md) | English | [Architecture & Extensions](docs/architecture-and-extensions_en.md) | [Deployment](docs/deployment_en.md) | [API Reference](docs/api-reference_en.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -57,10 +57,10 @@ uv sync --extra clone              # Install (includes voice cloning deps)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8123
 ```
 
-> **API Calls & Configuration**: See [API Reference](docs/api-reference.md).
+> **API Calls & Configuration**: See [API Reference](docs/api-reference_en.md).
 > 
 > **Server Deployment (Systemd/Nginx)**: See [Deployment Guide](docs/deployment.md).
-*(Note: Documentation is currently in Vietnamese)*
+
 
 ## ❤️ Open Source Credits
 
