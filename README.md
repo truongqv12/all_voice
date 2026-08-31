@@ -15,15 +15,14 @@ Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [
 
 <br/>
 
-### 📱 Giao diện đa nền tảng
+<img src="./assets/screenshots/tts-page-desktop.png" alt="TTS Page" width="800">
 
-| Tính năng | Desktop | Mobile |
-| :--- | :---: | :---: |
-| **Sinh giọng nói (TTS)** | <img src="./assets/screenshots/tts-page-desktop.png" width="600"> | <img src="./assets/screenshots/tts-page-mobile.png" width="200"> |
-| **Nhân bản giọng (Clone)** | <img src="./assets/screenshots/clone-page-desktop.png" width="600"> | <img src="./assets/screenshots/clone-page-mobile.png" width="200"> |
-| **Tạo phụ đề (Transcribe)**| <img src="./assets/screenshots/transcribe-page-desktop.png" width="600"> | <img src="./assets/screenshots/transcribe-page-mobile.png" width="200"> |
+<p align="center">
+  <img src="./assets/screenshots/clone-page-desktop.png" alt="Clone Page" width="49%">
+  <img src="./assets/screenshots/transcribe-page-desktop.png" alt="Transcribe Page" width="49%">
+</p>
 
-<br/>
+*Giao diện Frontend của ứng dụng với tính năng Sinh giọng nói (TTS), Tạo phụ đề (Transcribe) và Nhân bản giọng nói (Clone).*
 
 </div>
 
