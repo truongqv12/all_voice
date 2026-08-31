@@ -4,7 +4,7 @@
 
 **API Text-to-Speech tương thích OpenAI, đa engine — VieNeu (Việt) · Kokoro (Anh) · VOICEVOX (Nhật), ưu tiên CPU**
 
-Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [Triển khai](docs/deployment.md) · [Hướng dẫn API](docs/api-reference.md)
+Tiếng Việt | [English](README_en.md) | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) | [Triển khai](docs/deployment.md) | [Hướng dẫn API](docs/api-reference.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
