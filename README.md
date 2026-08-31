@@ -83,8 +83,10 @@ Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả phát tr
 - **Buy Me A Coffee**: [buymeacoffee.com/truongtt](https://buymeacoffee.com/truongtt) (Mua cho tác giả một ly cà phê ☕)
 - **Momo / VietQR**: Bạn có thể quét mã QR Momo hoặc VietQR ngay trong giao diện ứng dụng (trên máy tính hoặc Mobile) ở phần **Ủng hộ (Donate)**.
 
-Hoặc quét mã QR dưới đây để truy cập trang Buy Me A Coffee:
+Hoặc quét mã QR dưới đây để ủng hộ trực tiếp qua Vietcombank:
 
-<img src="assets/screenshots/donate-qr.png" alt="Donate QR Code" width="200">
+<p align="center">
+  <img src="assets/screenshots/vcb-qr.png" alt="Donate VietQR VCB 1062811353" width="300">
+</p>
 
 Cảm ơn bạn rất nhiều!
