@@ -8,6 +8,7 @@ export interface Voice {
   language: VoiceLanguage
   engine: 'vieneu' | 'kokoro' | 'voicevox' | 'clone'
   gender: VoiceGender
+  age?: string
   styles: string[]
   description: string
   previewUrl?: string

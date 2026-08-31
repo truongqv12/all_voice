@@ -1,4 +1,4 @@
-import { Check, CheckCircle2, Clipboard, Code2, ExternalLink, HandHeart, Info, Lightbulb, QrCode, Sliders } from 'lucide-react'
+import { Check, CheckCircle2, Clipboard, Code2, ExternalLink, HandHeart, Info, Lightbulb, Sliders } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { appConfig } from '../../config/app-config'
@@ -9,7 +9,7 @@ export function SupportPanel() {
   const [copied, setCopied] = useState(false)
 
   async function copyBank() {
-    await navigator.clipboard.writeText('MB Bank - 0988888888 - ALL VOICE')
+    await navigator.clipboard.writeText('Vietcombank - 1062811353')
     setCopied(true)
     window.setTimeout(() => setCopied(false), 2000)
   }
@@ -29,15 +29,11 @@ export function SupportPanel() {
         </div>
 
         <div className="mt-4 flex flex-col items-center gap-3 rounded-[var(--radius-control)] border border-dashed border-[var(--color-border)] bg-[var(--color-surface-soft)] p-3 text-center sm:flex-row sm:text-left">
-          <div
-            className="grid size-24 shrink-0 place-items-center rounded border border-[var(--color-border)] bg-[var(--color-surface)] p-2 font-mono text-[10px] font-bold text-[var(--color-primary)] select-none shadow-xs"
-            aria-label={t('support.qrPlaceholder')}
-          >
-            <div className="flex flex-col items-center">
-              <QrCode size={38} className="text-[var(--color-primary)]" />
-              <span className="mt-1 text-[9px] tracking-tight font-bold">{t('support.qr')}</span>
-            </div>
-          </div>
+          <img
+            src="https://img.vietqr.io/image/vcb-1062811353-qr_only.png"
+            alt="VietQR"
+            className="size-24 shrink-0 rounded border border-[var(--color-border)] bg-white object-contain p-1 shadow-xs"
+          />
 
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-[var(--color-text)]">{t('support.qrTitle')}</p>

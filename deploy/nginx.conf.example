@@ -11,7 +11,8 @@
 #
 # Install:
 #   sudo apt install nginx
-#   sudo mkdir -p /var/www/all-voice && sudo cp -r web/* /var/www/all-voice/
+#   (Build FE first: cd frontend && npm ci && npm run build)
+#   sudo mkdir -p /var/www/all-voice && sudo cp -r frontend/dist/* /var/www/all-voice/
 #   sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/all-voice
 #   sudo ln -sf /etc/nginx/sites-available/all-voice /etc/nginx/sites-enabled/all-voice
 #   sudo rm -f /etc/nginx/sites-enabled/default      # drop the stock 0.0.0.0:80 server
@@ -30,9 +31,20 @@ server {
     # ASR uploads (Whisper) — keep in step with the app's own body-size checks.
     client_max_body_size 25m;
 
-    # Test UI (web/index.html). SPA-style fallback so unknown paths serve the page.
+    # SPA (frontend/dist). SPA-style fallback so unknown paths serve the page.
     root /var/www/all-voice;
     index index.html;
+
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
     location / {
         try_files $uri /index.html;
     }

@@ -113,7 +113,7 @@ internet → Cloudflare edge → cloudflared (outbound) → nginx 127.0.0.1:8123
 - **API ẩn hoàn toàn:** `HOST=127.0.0.1` (mặc định) — API chỉ nghe loopback, **không**
   lộ ra LAN. Chỉ nginx (cũng ở localhost) tới được. Ngoài ra chặn thẳng cổng ở
   firewall: `sudo ufw deny 8124/tcp`.
-- **nginx là cửa:** serve UI test (`web/index.html`) + proxy `/v1/*` với
+- **nginx là cửa:** serve UI (bản build SPA `frontend/dist/`) + proxy `/v1/*` với
   `proxy_buffering off` (cho mp3 stream chảy ngay, né timeout 524 của Cloudflare),
   `client_max_body_size 25m`, và chuyển `CF-Connecting-IP` xuống app. App **chỉ tin**
   header IP này khi peer là loopback (qua nginx) — request gọi thẳng không giả mạo
@@ -150,7 +150,8 @@ Các bước gọn (sau khi đã `install-service.sh` cho API):
 
 ```bash
 sudo apt install nginx
-sudo mkdir -p /var/www/all-voice && sudo cp -r web/* /var/www/all-voice/
+(cd frontend && npm ci && npm run build)
+sudo mkdir -p /var/www/all-voice && sudo cp -r frontend/dist/* /var/www/all-voice/
 sudo cp deploy/nginx.conf.example /etc/nginx/sites-available/all-voice
 sudo ln -sf /etc/nginx/sites-available/all-voice /etc/nginx/sites-enabled/all-voice
 sudo rm -f /etc/nginx/sites-enabled/default

@@ -47,7 +47,8 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
       setCustomVoices(saved)
       setSelectedVoice(refreshed ?? null)
       setStyle(current => (refreshed?.styles.includes(current) ? current : refreshed?.styles[0] ?? ''))
-    } catch {
+    } catch (e) {
+      console.error("Failed to load voices:", e)
       setError(true)
     } finally {
       setLoading(false)

@@ -25,7 +25,7 @@ export default function TtsPage() {
       </section>
 
       {/* 7:3 DESKTOP SPLIT LAYOUT */}
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
         {/* LEFT 70% COLUMN: Textarea, Presets, Synth Controls, Audio Result, Usage Guide */}
         <section className="space-y-4 rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6">
           <div className="lg:hidden">

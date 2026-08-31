@@ -490,7 +490,7 @@ onnxruntime của VieNeu **có thể bỏ qua** `OMP_NUM_THREADS`. Vì vậy l�
 sự là **systemd `CPUQuota=`/`AllowedCPUs=`** (cgroup/taskset) trong
 `deploy/install-service.sh`: một synth chạy loạn không thể ăn hết 6 nhân và treo máy.
 
-> **Giai đoạn sau:** UI "xịn" (hiện tại chỉ `web/index.html` vanilla để kiểm chứng);
-> progressive playback bằng MediaSource cho stream (nay client test dùng Blob);
+> **Giai đoạn sau:** UI "xịn" (SPA React `frontend/` tương tác với các `/v1/*` endpoint);
+> Cloudflare proxy + HTTPS + Rate limit cứng. MediaSource cho stream (nay client test dùng Blob);
 > ngân sách/nhận diện dùng chung nhiều máy (Redis) khi vượt 1 node; đăng nhập +
 > hạn mức theo tài khoản. Stage 1 cố tình giữ **in-memory + SQLite, 1 máy, 1 worker**.

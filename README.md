@@ -305,7 +305,7 @@ Service tự khởi động lại khi crash và khi reboot — không giữ term
 đủ: [docs/deployment.md](docs/deployment.md).
 
 **Mở công khai không cần đăng nhập** (API ẩn sau nginx + Cloudflare Tunnel, tầng
-anon-gate tự bảo vệ theo chi phí thật, UI test `web/index.html`): đặt
+anon-gate tự bảo vệ theo chi phí thật, SPA React `frontend/`): đặt
 `ANON_ENABLED=true`, xem [docs/deployment.md — "Public qua Cloudflare Tunnel"](docs/deployment.md)
 + [`deploy/cloudflare-tunnel.md`](deploy/cloudflare-tunnel.md).
 

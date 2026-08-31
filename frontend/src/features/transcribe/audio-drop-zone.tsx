@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '../../components/ui/button'
 
-export function AudioDropZone({ onFile, error }: { onFile(file: File): void; error: string }) {
+export function AudioDropZone({ onFile, onSample, error }: { onFile(file: File): void; onSample(): void; error: string }) {
   const { t } = useTranslation()
   const input = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
@@ -13,10 +13,7 @@ export function AudioDropZone({ onFile, error }: { onFile(file: File): void; err
   }
 
   function handleTrySample() {
-    const sampleFile = new File(['mock-audio-content'], 'sample-vietnamese-podcast.mp3', {
-      type: 'audio/mpeg',
-    })
-    onFile(sampleFile)
+    onSample()
   }
 
   const message = error ? t(`transcribe.error.${error}`) : ''
