@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Preview + error-map + gỡ sample giả"
-status: pending
+status: completed
 priority: P1
 effort: "0.5-1d"
 dependencies: [1]

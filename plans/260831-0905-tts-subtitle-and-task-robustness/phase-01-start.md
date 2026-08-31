@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "FE task-lâu robustness (timeout/abort/retry/progress/race)"
-status: pending
+status: completed
 priority: P1
 effort: "1-1.5d"
 dependencies: []

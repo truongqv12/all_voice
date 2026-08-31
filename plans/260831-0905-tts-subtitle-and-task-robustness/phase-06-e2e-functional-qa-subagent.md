@@ -1,7 +1,7 @@
 ---
 phase: 6
 title: "E2E functional QA — sub-agent thao tác"
-status: pending
+status: completed
 priority: P1
 effort: "1-1.5d"
 dependencies: [2, 3, 4, 5]

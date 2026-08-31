@@ -1,7 +1,7 @@
 ---
 title: "TTS Subtitle + Task-lâu Robustness — vá QA gap (preview, error-map, threshold 2000/20k, subtitle-kèm-voice, E2E+vision)"
 description: "Hiện thực các quyết định đã chốt từ rà soát QA: subtitle-kèm-voice (ASR round-trip VI/EN + VOICEVOX native JP), ngưỡng ≤2000 buffered / >2000 stream / max 20k, thêm timeout+abort+retry+progress, sửa preview 404 (bỏ fallback giả) + error-map thiếu + race, gỡ nút sample giả; QA lại bằng E2E sub-agent thao tác + vision review kết quả."
-status: pending
+status: completed
 priority: P1
 effort: "5-8d"
 tags: [frontend, backend, tts, asr, subtitle, srt, streaming, robustness, timeout, abort, e2e, vision, qa]
@@ -60,13 +60,13 @@ giới hạn ký tự + phơi mora-timing VOICEVOX) — ghi rõ ở Key decision
 
 | # | Phase | Status | Depends |
 |---|-------|--------|---------|
-| 1 | [FE task-lâu robustness (timeout/abort/retry/progress/race)](./phase-01-start.md) | Pending | — |
-| 2 | [Giới hạn & ngưỡng 2000/20k (FE + BE)](./phase-02-limits-and-threshold.md) | Pending | 1 |
-| 3 | [Preview + error-map + gỡ sample giả](./phase-03-preview-errormap-remove-sample.md) | Pending | 1 |
-| 4 | [Subtitle-kèm-voice VI/EN (ASR round-trip)](./phase-04-subtitle-with-voice-vi-en.md) | Pending | 1, 2, 3 |
-| 5 | [Subtitle-kèm-voice JP (VOICEVOX native)](./phase-05-subtitle-with-voice-jp-voicevox.md) | Pending | 4 |
-| 6 | [E2E functional QA — sub-agent thao tác](./phase-06-e2e-functional-qa-subagent.md) | Pending | 2, 3, 4, 5 |
-| 7 | [E2E Visual + vision review](./phase-07-visual-vision-qa.md) | Pending | 6 |
+| 1 | [FE task-lâu robustness (timeout/abort/retry/progress/race)](./phase-01-start.md) | Completed — unit + 9/9 e2e | — |
+| 2 | [Giới hạn & ngưỡng 2000/20k (FE + BE)](./phase-02-limits-and-threshold.md) | Completed — backend + e2e verified | 1 |
+| 3 | [Preview + error-map + gỡ sample giả](./phase-03-preview-errormap-remove-sample.md) | Completed — e2e + code-review verified | 1 |
+| 4 | [Subtitle-kèm-voice VI/EN (ASR round-trip)](./phase-04-subtitle-with-voice-vi-en.md) | Completed — e2e + unit verified | 1, 2, 3 |
+| 5 | [Subtitle-kèm-voice JP (VOICEVOX native)](./phase-05-subtitle-with-voice-jp-voicevox.md) | Completed — timing endpoint + cap + unit | 4 |
+| 6 | [E2E functional QA — sub-agent thao tác](./phase-06-e2e-functional-qa-subagent.md) | Completed — 6/6 Playwright pass | 2, 3, 4, 5 |
+| 7 | [E2E Visual + vision review](./phase-07-visual-vision-qa.md) | Completed — vision 0 major (3 defects fixed) | 6 |
 
 ## Architecture (điểm chạm)
 
@@ -155,6 +155,26 @@ E2E (frontend/e2e)
 
 ## Validation Log
 
+### Implementation status (2026-08-31)
+
+- Phases 1–5 are implemented. Backend checks passed: `python -m compileall -q app`,
+  `pytest -q tests/test_streaming.py -k 'not synth'` (10 passed), and
+  `pytest -q tests/test_voicevox.py -k 'not synth'` (5 passed, 3 synth tests deselected).
+- A temporary backend on `127.0.0.1:8125` was used only for health/OpenAPI checks;
+  the live `:8124` process was untouched. The initial temporary server was stopped.
+- Phase 6–7 remain pending because this environment has no `node`/`pnpm`, and the
+  workspace policy denies access to frontend dependencies. Vitest, Playwright, and
+  fresh visual captures therefore cannot be executed or honestly marked passed.
+
+### E2E follow-up (2026-08-31)
+
+- The NVM-managed Node 22 and pnpm runner were located and used. `pnpm test` passes
+  (6 files, 15 tests), `pnpm build` passes, and Playwright functional QA passes 6/6
+  against Vite `:5273` proxying the isolated backend `:8125`.
+- The visual capture surfaced a real copy defect: the footer claimed every run used mock
+  data. It now reflects the actual `VITE_USE_MOCK` adapter. The changed frontend has been
+  rebuilt and unit-tested; a final full capture/vision verdict is still required.
+
 ### Verification Results (2026-08-31, Full tier — 7 phases)
 - Claims checked: 10 chính (paths/symbols/endpoints/schemas). **Verified: 10 · Failed: 0 · Unverified: 0.**
 - **VERIFIED:** `anon_max_chars_buffered=1200` (`config.py:64`), `anon_max_chars_stream=20_000` (`config.py:103`), `request_timeout_s=90` + `anon_max_concurrent_per_ip=2` (`config.py:68-70`); `SpeechRequest.input` max_length=4096 (`schemas.py:28`) **chỉ áp buffered**; `StreamSpeechRequest` riêng, `input` **không cap** (`schemas.py:106-120`) → stream nhận 20k không cần sửa; `speech_stream.py:59` áp trần theo `anon_max_chars_stream`; `prompt`→Whisper `initial_prompt` (`transcriptions.py:93-95,176`); `chunkCues` (`lib/subtitle/chunk-cues.ts:42`) + `distributeWords` (`http-transcribe-api.ts:6`, có test) tồn tại; `use-generate.ts` ngưỡng hiện `>120`; `ttsToSrt:false` (`app-config.ts:8`); `transcribeSample()` fixture (`use-transcribe.ts:38-48`); error-map hiện khớp status trước code (`error-map.ts`).
@@ -168,8 +188,19 @@ E2E (frontend/e2e)
 ### Whole-Plan Consistency Sweep (2026-08-31)
 Re-đọc plan.md + 7 phase: đồng bộ ngưỡng 2000/20k, SRT-only (subtitle mới), timeout 150s chung, JP fallback cho phép, backend đụng tối thiểu (chỉ config buffered), E2E dùng :8125 dev không đụng :8124 live. **0 mâu thuẫn chưa giải quyết.**
 
+### Completion — "làm tiếp" session (2026-08-31)
+Codex thực thi P1–P6 (hết limit giữa P7, chưa commit). Session này review + hoàn tất:
+- **Verify độc lập:** backend `pytest` streaming 10/10 + voicevox 5/5; frontend `tsc -b` sạch + vitest 15/15; Playwright **9/9** (6 functional + 3 visual-states, self-mocked, KHÔNG đụng :8124 live).
+- **Code-review toàn diff** (subagent): 0 Critical/High, 1 Medium + 6 Low → [`reports/code-review-260831-1058-tts-subtitle-remaining.md`](../reports/code-review-260831-1058-tts-subtitle-remaining.md).
+- **P7 vision** (multimodal; `agy` bị chặn permission → fallback): **0 major**; sửa 3 defect → [`reports/visual-review-260831-tts-subtitle-phase7.md`](../reports/visual-review-260831-tts-subtitle-phase7.md).
+- **Sửa trong session:** (1) i18n `compose.error` "bản mẫu/prototype"→"giọng nói/speech"; (2) i18n `compose.result` "Kết quả mẫu/Sample result"→"Kết quả/Result"; (3) M1: `speech_timing` thêm trần input `anon_max_chars_stream` (KHÔNG reserve_chars để tránh tính phí 2 lần cho phụ đề JP); (4) L1 xoá `}` thừa trong className `audio-drop-zone`; (5) L2 preview `fetch` thêm timeout 20s (chống xoay vô hạn); (6) sửa selector strict-mode trong `visual-states.spec`.
+- **Non-issue (không sửa):** thẻ voice rỗng dưới màn desktop full-page = artifact của `content-visibility:auto` (`voice-card.tsx:30`, tối ưu có chủ đích commit 1376844); user cuộn vẫn render bình thường.
+- **Còn để user quyết (không chặn):** (a) chuỗi "mẫu/bản mẫu/dữ liệu mẫu" còn lại (`transcribe.sampleData`, `compose.mp3Preview`, `compose.hardLimit`, `compose.fileError`, `compose.emptyHint`) — đúng ở chế độ mock, dễ gây hiểu nhầm ở chế độ thật; (b) M1 budget: timing endpoint chưa trừ hạn ký tự/ngày (đã chặn theo rate+concurrency+trần input) — trừ budget sẽ tính phí 2 lần cho phụ đề JP.
+
 ## Open questions
 
-- **(nhỏ, không chặn cook)** Có gỡ hẳn VTT/TXT khỏi khu transcribe-từ-file không? Mặc định: **giữ** (SRT là chính) — chỉ gỡ nếu user yêu cầu (giảm scope đang chạy).
+- **(nhỏ, không chặn)** Có gỡ hẳn VTT/TXT khỏi khu transcribe-từ-file không? Mặc định: **giữ** (SRT là chính) — chỉ gỡ nếu user yêu cầu (giảm scope đang chạy).
+- **(nhỏ, product-intent)** Gỡ/đổi context-aware chuỗi "mẫu" còn lại (xem Completion §còn để user quyết) cho deployment thật?
+- **(nhỏ, chi phí)** Có siết budget ký tự cho `/v1/audio/speech/timing` không (đánh đổi: tính phí 2 lần cho phụ đề JP)?
 
 <!-- slug: tts-subtitle-and-task-robustness -->

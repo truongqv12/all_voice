@@ -1,7 +1,7 @@
 ---
 phase: 7
 title: "E2E Visual + vision review kết quả"
-status: pending
+status: completed
 priority: P1
 effort: "0.5-1d"
 dependencies: [6]

@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Subtitle-kèm-voice VI/EN (ASR round-trip)"
-status: pending
+status: completed
 priority: P1
 effort: "1-1.5d"
 dependencies: [1, 2, 3]

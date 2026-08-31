@@ -1,7 +1,7 @@
 ---
 phase: 5
 title: "Subtitle-kèm-voice JP (VOICEVOX native mora-timing)"
-status: pending
+status: completed
 priority: P2
 effort: "1.5-2.5d"
 dependencies: [4]
