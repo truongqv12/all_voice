@@ -1,5 +1,5 @@
-import { apiFetch, apiJson, apiBlob } from './http-client';
-import type { TtsApi } from './tts-api';
+import { ApiError, apiFetch, apiJson, apiBlob, createRequestAbort, type HttpClientOptions } from './http-client';
+import type { SpeechTimingCue, TtsApi } from './tts-api';
 import type { Voice, SynthParams, SynthResult } from './types';
 
 interface VoiceItem {
@@ -119,10 +119,10 @@ export const httpTtsApi: TtsApi = {
     return `${BASE_URL}/voices/${voice.engine}/${voice.id}/preview`;
   },
 
-  async synth(params: SynthParams): Promise<SynthResult> {
+  async synth(params: SynthParams, options?: HttpClientOptions): Promise<SynthResult> {
     if (voiceCache.size === 0) await this.listVoices();
     const cached = voiceCache.get(params.voiceId);
-    const model = cached?.engine || 'vieneu';
+    const model = params.engine || cached?.engine || 'vieneu';
     
     const payload: any = {
       model,
@@ -136,55 +136,87 @@ export const httpTtsApi: TtsApi = {
     }
 
     const blob = await apiBlob('/audio/speech', {
+      ...options,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     return {
       audioUrl: URL.createObjectURL(blob),
+      audioBlob: blob,
       filename: `all-voice-${params.voiceId}.${params.format}`,
       previewOnly: false,
+      engine: model,
     };
   },
 
-  async synthStream(params: SynthParams, onProgress: (percent: number) => void): Promise<SynthResult> {
+  async synthStream(params: SynthParams, onProgress: (percent: number) => void, options?: HttpClientOptions): Promise<SynthResult> {
     if (voiceCache.size === 0) await this.listVoices();
     const cached = voiceCache.get(params.voiceId);
-    const model = cached?.engine || 'vieneu';
+    const model = params.engine || cached?.engine || 'vieneu';
     
     const payload: any = {
       model,
       input: params.text,
       voice: params.voiceId,
       response_format: 'mp3',
+      speed: params.speed,
     };
     if (cached && cached.styles.includes(params.style)) {
       payload.style = params.style;
     }
 
-    const res = await apiFetch('/audio/stream', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    
-    if (!res.body) throw new Error('No body in response');
-    const reader = res.body.getReader();
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    onProgress(0); // indeterminate marker
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      received += value.length;
-      onProgress(received); 
+    const abort = createRequestAbort(options);
+    try {
+      const res = await apiFetch('/audio/stream', {
+        ...options,
+        signal: abort.signal,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }, true);
+      if (!res.body) throw new Error('No body in response');
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      onProgress(0);
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        onProgress(received);
+      }
+      const blob = new Blob(chunks as unknown as BlobPart[], { type: 'audio/mpeg' });
+      return {
+        audioUrl: URL.createObjectURL(blob),
+        audioBlob: blob,
+        filename: `all-voice-${params.voiceId}.mp3`,
+        previewOnly: false,
+        engine: model,
+      };
+    } catch (error) {
+      if (abort.signal.aborted) {
+        throw new ApiError(0, abort.timedOut() ? 'timeout' : 'aborted', abort.timedOut() ? 'The request timed out.' : 'The request was cancelled.');
+      }
+      throw error;
+    } finally {
+      abort.dispose();
     }
-    const blob = new Blob(chunks as any[], { type: 'audio/mpeg' });
-    return {
-      audioUrl: URL.createObjectURL(blob),
-      filename: `all-voice-${params.voiceId}.mp3`,
-      previewOnly: false,
-    };
+  },
+
+  async getSpeechTiming(params: SynthParams, options?: HttpClientOptions): Promise<SpeechTimingCue[]> {
+    const data = await apiJson<{ cues: SpeechTimingCue[] }>('/audio/speech/timing', {
+      ...options,
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'voicevox',
+        input: params.text,
+        voice: params.voiceId,
+        speed: params.speed,
+        streaming: params.text.length > 2000,
+      }),
+    });
+    return data.cues;
   },
 };

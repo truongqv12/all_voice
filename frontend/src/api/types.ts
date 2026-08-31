@@ -17,6 +17,7 @@ export interface Voice {
 export interface SynthParams {
   text: string
   voiceId: string
+  engine?: Voice['engine']
   style: string
   speed: number
   format: AudioFormat
@@ -24,6 +25,8 @@ export interface SynthParams {
 
 export interface SynthResult {
   audioUrl: string
+  audioBlob: Blob
   filename: string
   previewOnly: boolean
+  engine: Voice['engine']
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
 import type { ReactNode } from 'react'
+import { appConfig } from '../config/app-config'
 import { mockTtsApi } from './mock-tts-api'
 import { mockTranscribeApi } from './mock-transcribe-api'
 import { mockCloneApi } from './clone-api'
@@ -10,8 +11,6 @@ import type { TtsApi } from './tts-api'
 import type { TranscribeApi } from './transcribe-api'
 import type { CloneApi } from './clone-api'
 
-const useMock = import.meta.env.VITE_USE_MOCK === '1'
-
 export interface ApiContextValue {
   ttsApi: TtsApi
   transcribeApi: TranscribeApi
@@ -19,9 +18,9 @@ export interface ApiContextValue {
 }
 
 const defaultContextValue: ApiContextValue = {
-  ttsApi: useMock ? mockTtsApi : httpTtsApi,
-  transcribeApi: useMock ? mockTranscribeApi : httpTranscribeApi,
-  cloneApi: useMock ? mockCloneApi : httpCloneApi,
+  ttsApi: appConfig.useMock ? mockTtsApi : httpTtsApi,
+  transcribeApi: appConfig.useMock ? mockTranscribeApi : httpTranscribeApi,
+  cloneApi: appConfig.useMock ? mockCloneApi : httpCloneApi,
 }
 
 const ApiContext = createContext<ApiContextValue | null>(null)

@@ -21,6 +21,7 @@
   "placeholder.clone.description": "Khu đăng ký mẫu giọng với consent rõ ràng sẽ có ở bước kế tiếp.",
   "placeholder.status": "Bản mẫu đang được dựng",
   "footer.mock": "Bản xem trước dùng dữ liệu mẫu, chưa gọi API thật.",
+  "footer.live": "Đang kết nối với dịch vụ giọng nói.",
   "a11y.skipToContent": "Bỏ qua để tới nội dung",
   "a11y.featureNavigation": "Điều hướng tính năng",
   "a11y.close": "Đóng",
@@ -35,6 +36,7 @@
   "voice.loadErrorTitle": "Không tải được danh sách giọng",
   "voice.loadErrorDescription": "Bản mẫu không thể tải dữ liệu. Hãy thử lại.",
   "voice.retry": "Thử lại",
+  "voice.previewUnavailable": "Giọng này chưa có mẫu nghe thử.",
   "voice.emptyTitle": "Không có giọng khớp",
   "voice.emptyDescription": "Thử đổi bộ lọc hoặc xoá từ khoá tìm kiếm.",
   "voice.resetAction": "Đặt lại bộ lọc",
@@ -48,7 +50,7 @@
   "compose.placeholder": "Dán hoặc viết nội dung bạn muốn chuyển thành giọng nói.",
   "compose.counter": "{{count}} / {{limit}} ký tự",
   "compose.hardLimit": "Nội dung dài quá giới hạn bản mẫu. Hãy rút ngắn trước khi tạo.",
-  "compose.streamMode": "Nội dung dài sẽ dùng chế độ stream giả lập.",
+  "compose.streamMode": "Nội dung trên 2.000 ký tự sẽ được tạo theo dòng.",
   "compose.fileHint": "Thả tệp .txt hoặc bấm để chọn",
   "compose.fileError": "Chỉ hỗ trợ tệp .txt ở bản mẫu này.",
   "compose.fileLoaded": "Đã nạp {{name}}",
@@ -58,15 +60,21 @@
   "compose.format": "Định dạng",
   "compose.generate": "Tạo giọng nói",
   "compose.generating": "Đang tạo",
+  "compose.synthesizing": "Đang tổng hợp giọng nói",
+  "compose.receiving": "Đang nhận dữ liệu âm thanh",
   "compose.preparing": "Đang chuẩn bị",
-  "compose.error": "Không thể tạo bản mẫu. Hãy thử lại.",
-  "compose.result": "Kết quả mẫu",
+  "compose.error": "Không thể tạo giọng nói. Hãy thử lại.",
+  "compose.result": "Kết quả",
   "compose.play": "Phát",
   "compose.pause": "Dừng",
   "compose.download": "Tải xuống",
   "compose.regenerate": "Tạo lại",
   "compose.subtitle": "Xuất phụ đề .srt",
   "compose.subtitleSoon": "Tính năng này đang chờ khu Chuyển giọng nói thành văn bản.",
+  "compose.subtitleApproximate": "Phụ đề gần đúng: âm thanh được nhận dạng lại nên có thể lệch một số từ hoặc mốc thời gian.",
+  "compose.subtitleNative": "Phụ đề tiếng Nhật dùng nhịp mora VOICEVOX native để khớp audio.",
+  "compose.subtitleGenerating": "Đang tạo phụ đề…",
+  "compose.subtitleDownloaded": "Đã tải tệp phụ đề .srt.",
   "compose.mp3Preview": "Âm thanh là MP3 mẫu dùng chung để xem trước giao diện.",
   "compose.emptyHint": "Dán văn bản, chọn giọng, rồi bấm Tạo giọng nói để nghe kết quả mẫu.",
   "compose.sampleShort": "Xin chào, chào mừng bạn đến với All Voice - nền tảng tổng hợp giọng đọc AI tự nhiên và chân thực.",
@@ -75,16 +83,16 @@
   "compose.quickFill": "Điền mẫu nhanh:",
   "transcribe.eyebrow": "CHUYỂN GIỌNG NÓI THÀNH VĂN BẢN",
   "transcribe.title": "Đọc lại âm thanh, rồi xuất phụ đề đúng chuẩn.",
-  "transcribe.description": "Tải một tệp âm thanh để xem luồng chép lời mẫu và điều chỉnh phụ đề ngay trên trình duyệt.",
+  "transcribe.description": "Tải một tệp âm thanh để tạo bản chép lời và điều chỉnh phụ đề ngay trên trình duyệt.",
   "transcribe.uploadTitle": "Thả tệp âm thanh vào đây",
-  "transcribe.uploadDescription": "Hỗ trợ .mp3, .wav hoặc .m4a, tối đa 50 MB. Bản xem trước dùng transcript mẫu và không gửi tệp tới máy chủ.",
+  "transcribe.uploadDescription": "Hỗ trợ .mp3, .wav hoặc .m4a, tối đa 25 MB.",
   "transcribe.chooseFile": "Chọn tệp âm thanh",
   "transcribe.trySample": "Thử với âm thanh mẫu (1-click)",
   "transcribe.error.format": "Chỉ nhận tệp .mp3, .wav hoặc .m4a.",
-  "transcribe.error.size": "Tệp vượt quá giới hạn 50 MB của bản xem trước.",
-  "transcribe.error.generic": "Không thể tạo transcript mẫu. Hãy thử lại.",
+  "transcribe.error.size": "Tệp vượt quá giới hạn 25 MB.",
+  "transcribe.error.generic": "Không thể tạo bản chép lời. Hãy thử lại.",
   "transcribe.progress.uploading": "Đang chuẩn bị tệp âm thanh",
-  "transcribe.progress.transcribing": "Đang tạo transcript mẫu",
+  "transcribe.progress.transcribing": "Đang nhận dạng giọng nói",
   "transcribe.sampleData": "DỮ LIỆU MẪU",
   "transcribe.transcript": "Bản chép lời",
   "transcribe.language.vi": "Tiếng Việt",
@@ -169,4 +177,18 @@
   "limits.asr-too-long.description": "Vui lòng cắt nhỏ audio dưới 5 phút (300 giây) để bóc băng.",
   "limits.overloaded.title": "Dịch vụ đang quá tải.",
   "limits.overloaded.description": "Hiện tại dịch vụ ASR/TTS chưa sẵn sàng hoặc đang bận, vui lòng thử lại sau."
+  ,"limits.audio-invalid.title": "Tệp âm thanh không hợp lệ."
+  ,"limits.audio-invalid.description": "Hãy chọn một tệp âm thanh có thể mở được."
+  ,"limits.audio-too-large.title": "Tệp âm thanh quá lớn."
+  ,"limits.audio-too-large.description": "Giới hạn tải lên là 25 MB."
+  ,"limits.no-preview.title": "Chưa có mẫu nghe thử."
+  ,"limits.no-preview.description": "Giọng này chưa có tệp mẫu để phát."
+  ,"limits.auth.title": "Không xác thực được yêu cầu."
+  ,"limits.auth.description": "Kiểm tra lại khóa API hoặc dùng chế độ công khai nếu được bật."
+  ,"limits.timeout.title": "Yêu cầu mất quá lâu."
+  ,"limits.timeout.description": "Hãy thử lại hoặc dùng nội dung ngắn hơn."
+  ,"limits.asr-unavailable.title": "Nhận dạng giọng nói chưa sẵn sàng."
+  ,"limits.asr-unavailable.description": "Máy chủ chưa cài thành phần ASR; hãy thử lại sau."
+  ,"action.cancel": "Hủy"
+  ,"action.retry": "Thử lại"
 }

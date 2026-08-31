@@ -11,6 +11,7 @@ export const VoiceCard = memo(function VoiceCard({
   selected,
   active,
   loading,
+  previewUnavailable,
   onSelect,
   onToggle,
 }: {
@@ -18,6 +19,7 @@ export const VoiceCard = memo(function VoiceCard({
   selected: boolean
   active: boolean
   loading: boolean
+  previewUnavailable: boolean
   onSelect(): void
   onToggle(): void
 }) {
@@ -67,6 +69,7 @@ export const VoiceCard = memo(function VoiceCard({
           <span>{t('voice.select')}</span>
         )}
       </Button>
+      {previewUnavailable && <p role="alert" className="mt-2 text-xs leading-5 text-[var(--color-warning)]">{t('voice.previewUnavailable')}</p>}
     </article>
   )
 })

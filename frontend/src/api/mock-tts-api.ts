@@ -6,7 +6,7 @@ const sampleAudio = '/audio/mock-sample.mp3'
 const delay = (ms: number) => new Promise(resolve => window.setTimeout(resolve, ms))
 
 function result(params: SynthParams): SynthResult {
-  return { audioUrl: sampleAudio, filename: `all-voice-${params.voiceId}.mp3`, previewOnly: true }
+  return { audioUrl: sampleAudio, audioBlob: new Blob(), filename: `all-voice-${params.voiceId}.mp3`, previewOnly: true, engine: 'vieneu' }
 }
 
 export const mockTtsApi: TtsApi = {
@@ -17,4 +17,5 @@ export const mockTtsApi: TtsApi = {
     for (const percent of [12, 29, 51, 76, 100]) { await delay(230); onProgress(percent) }
     return result(params)
   },
+  async getSpeechTiming() { return [{ start: 0, end: 1, text: 'テスト' }] },
 }

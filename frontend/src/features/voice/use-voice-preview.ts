@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useTtsApi } from '../../api/api-context'
+import { ApiError } from '../../api/http-client'
 import type { Voice } from '../../api/types'
+import { useTtsApi } from '../../api/api-context'
 import { claimAudio } from '../../lib/audio-playback-coordinator'
 
 export function useVoicePreview() {
@@ -9,76 +10,79 @@ export function useVoicePreview() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const request = useRef(0)
   const release = useRef<(() => void) | null>(null)
+  const objectUrl = useRef<string | null>(null)
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [errorId, setErrorId] = useState<string | null>(null)
+
+  function stopPlayback() {
+    audio.current?.pause()
+    const currentRelease = release.current
+    release.current = null
+    currentRelease?.()
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current)
+    objectUrl.current = null
+  }
 
   useEffect(() => {
     return () => {
       request.current += 1
-      audio.current?.pause()
-      release.current?.()
+      stopPlayback()
     }
   }, [])
 
   async function playAudioSrc(src: string, requestId: number) {
     if (requestId !== request.current) return false;
-    const player = new Audio(src);
+    // Bound the preview fetch so a hung endpoint cannot spin the loading state forever.
+    const response = await fetch(src, { signal: AbortSignal.timeout(20_000) })
+    if (!response.ok) throw new ApiError(response.status, response.status === 404 ? 'preview_not_found' : 'preview_load_failed', 'Preview could not be loaded.')
+    const previewUrl = URL.createObjectURL(await response.blob())
+    if (requestId !== request.current) {
+      URL.revokeObjectURL(previewUrl)
+      return false
+    }
+    objectUrl.current = previewUrl
+    const player = new Audio(previewUrl);
     audio.current = player;
-    release.current = claimAudio(() => { player.pause(); setActiveId(null) });
-    player.onended = () => { release.current?.(); setActiveId(null) };
-    
-    await player.play();
+    release.current = claimAudio(() => { stopPlayback(); setActiveId(null) });
+    player.onended = () => { stopPlayback(); setActiveId(null) };
+    try {
+      await player.play();
+    } catch (error) {
+      stopPlayback()
+      throw error
+    }
     return true;
   }
 
   async function toggle(voice: Voice) {
     if (activeId === voice.id) {
       request.current += 1
-      audio.current?.pause()
-      release.current?.()
+      stopPlayback()
       setLoadingId(null)
       setActiveId(null)
       return
     }
 
     const requestId = ++request.current
-    audio.current?.pause()
-    release.current?.()
+    stopPlayback()
     setLoadingId(voice.id)
+    setErrorId(null)
 
     try {
       const src = await api.getPreviewUrl(voice)
       if (requestId !== request.current) return
       
-      try {
-        const played = await playAudioSrc(src, requestId);
-        if (played && requestId === request.current) setActiveId(voice.id);
-      } catch (playError) {
-        // Fallback to synth if preview URL fails (e.g. 404 from backend)
-        if (requestId !== request.current) return;
-        
-        try {
-          const sampleText = voice.language === 'vi' ? 'Xin chào, đây là giọng đọc thử của tôi.' : 'Hello, this is a sample of my voice.';
-          const result = await api.synth({
-            text: sampleText,
-            voiceId: voice.id,
-            style: voice.styles[0] || 'default',
-            speed: 1.0,
-            format: 'mp3'
-          });
-          
-          if (requestId !== request.current) return;
-          const fallbackPlayed = await playAudioSrc(result.audioUrl, requestId);
-          if (fallbackPlayed && requestId === request.current) setActiveId(voice.id);
-        } catch (synthError) {
-          if (requestId === request.current) setActiveId(null);
-        }
-      }
+      const played = await playAudioSrc(src, requestId);
+      if (played && requestId === request.current) setActiveId(voice.id);
     } catch {
-      if (requestId === request.current) setActiveId(null)
+      if (requestId === request.current) {
+        setActiveId(null)
+        setErrorId(voice.id)
+      }
     } finally {
       if (requestId === request.current) setLoadingId(null)
     }
   }
 
-  return { activeId, loadingId, toggle }
+  return { activeId, loadingId, errorId, toggle }
 }

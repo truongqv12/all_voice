@@ -18,7 +18,8 @@ export type TranscriptionResult = {
 }
 
 export type TranscribeProgress = 'uploading' | 'transcribing'
+export type TranscribeOptions = { prompt?: string; signal?: AbortSignal; timeoutMs?: number }
 
 export interface TranscribeApi {
-  transcribe(file: File, onProgress: (stage: TranscribeProgress, percent: number) => void): Promise<TranscriptionResult>
+  transcribe(file: File, onProgress: (stage: TranscribeProgress, percent: number) => void, options?: TranscribeOptions): Promise<TranscriptionResult>
 }

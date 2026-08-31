@@ -15,6 +15,12 @@ describe('mapErrorToLimitKind', () => {
     expect(mapErrorToLimitKind(new ApiError(400, 'quota_exceeded', ''))).toBe('quota')
     expect(mapErrorToLimitKind(new ApiError(400, 'input_too_long', ''))).toBe('too-long')
     expect(mapErrorToLimitKind(new ApiError(400, 'server_overloaded', ''))).toBe('overloaded')
+    expect(mapErrorToLimitKind(new ApiError(400, 'invalid_audio_file', ''))).toBe('audio-invalid')
+    expect(mapErrorToLimitKind(new ApiError(400, 'audio_file_too_large', ''))).toBe('audio-too-large')
+    expect(mapErrorToLimitKind(new ApiError(401, 'invalid_api_key', ''))).toBe('auth')
+    expect(mapErrorToLimitKind(new ApiError(404, 'preview_not_found', ''))).toBe('no-preview')
+    expect(mapErrorToLimitKind(new ApiError(503, 'asr_unavailable', ''))).toBe('asr-unavailable')
+    expect(mapErrorToLimitKind(new ApiError(0, 'timeout', ''))).toBe('timeout')
   })
 
   it('should return null for unknown errors', () => {

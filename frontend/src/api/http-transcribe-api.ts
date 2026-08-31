@@ -1,4 +1,4 @@
-import type { TranscribeApi, TranscriptionResult, TranscriptSegment, TranscriptWord } from './transcribe-api';
+import type { TranscribeApi, TranscribeOptions, TranscriptionResult, TranscriptSegment, TranscriptWord } from './transcribe-api';
 import { ApiError } from './http-client';
 
 const BASE_URL = import.meta.env.VITE_API_BASE || '/v1';
@@ -51,10 +51,33 @@ export function distributeWords(segments: any[], words: any[]): TranscriptSegmen
 }
 
 export const httpTranscribeApi: TranscribeApi = {
-  transcribe(file: File, onProgress: (stage: 'uploading' | 'transcribing', percent: number) => void): Promise<TranscriptionResult> {
+  transcribe(file: File, onProgress: (stage: 'uploading' | 'transcribing', percent: number) => void, options: TranscribeOptions = {}): Promise<TranscriptionResult> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const url = `${BASE_URL}/audio/transcriptions`;
+      let settled = false;
+      let timedOut = false;
+      const abort = () => xhr.abort();
+      const timeout = window.setTimeout(() => {
+        timedOut = true;
+        xhr.abort();
+      }, options.timeoutMs ?? 150_000);
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abort);
+      };
+      const finish = <T>(callback: (value: T) => void, value: T) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback(value);
+      };
+
+      if (options.signal?.aborted) {
+        finish(reject, new ApiError(0, 'aborted', 'The request was cancelled.'));
+        return;
+      }
+      options.signal?.addEventListener('abort', abort, { once: true });
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) {
@@ -67,12 +90,12 @@ export const httpTranscribeApi: TranscribeApi = {
           try {
             const json = JSON.parse(xhr.responseText);
             const segments = distributeWords(json.segments || [], json.words || []);
-            resolve({
+            finish(resolve, {
               language: json.language || '',
               segments
             });
           } catch (err) {
-            reject(new ApiError(xhr.status, 'parse_error', 'Invalid JSON response'));
+            finish(reject, new ApiError(xhr.status, 'parse_error', 'Invalid JSON response'));
           }
         } else {
           let code = 'unknown_error';
@@ -89,13 +112,15 @@ export const httpTranscribeApi: TranscribeApi = {
           } catch (e) {
             if (xhr.responseText) message = xhr.responseText;
           }
-          reject(new ApiError(xhr.status, code, message));
+          finish(reject, new ApiError(xhr.status, code, message));
         }
       };
 
       xhr.onerror = () => {
-        reject(new ApiError(0, 'network_error', 'Network error occurred'));
+        finish(reject, new ApiError(0, 'network_error', 'Network error occurred'));
       };
+
+      xhr.onabort = () => finish(reject, new ApiError(0, timedOut ? 'timeout' : 'aborted', timedOut ? 'The request timed out.' : 'The request was cancelled.'));
 
       xhr.open('POST', url, true);
       
@@ -103,6 +128,7 @@ export const httpTranscribeApi: TranscribeApi = {
       fd.append('file', file);
       fd.append('response_format', 'verbose_json');
       fd.append('timestamp_granularities[]', 'word');
+      if (options.prompt) fd.append('prompt', options.prompt);
 
       // Once uploaded, it's transcribing on the server (indeterminate)
       xhr.upload.onload = () => {

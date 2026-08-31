@@ -1,10 +1,11 @@
 export const appConfig = {
+  useMock: import.meta.env.VITE_USE_MOCK === '1',
   support: {
     buyMeCoffeeUrl: 'https://www.buymeacoffee.com/',
   },
   demos: { limits: true },
   features: {
     cloning: import.meta.env.VITE_FEATURE_CLONING === 'true' || false,
-    ttsToSrt: false,
+    ttsToSrt: true,
   },
 } as const
