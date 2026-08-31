@@ -107,8 +107,10 @@ async function runFullInteractiveAudit() {
     logResult('TC-ASR-01', '1-Click sample audio button visible', await sampleBtn.isVisible() ? 'PASS' : 'FAIL')
     await sampleBtn.click()
 
-    // Wait for transcript result
-    await page.waitForSelector('text=Bản chép lời', { timeout: 10000 })
+    // Wait for transcript result (can take ~20s for Whisper initialization)
+    await page.waitForSelector('text=Bản chép lời', { timeout: 40000 })
+    const firstSegment = page.locator('ol li').first()
+    await firstSegment.waitFor({ timeout: 10000 }).catch(() => {})
     const segmentCount = await page.locator('ol li').count()
     logResult('TC-ASR-02', 'Transcription progress to transcript view', segmentCount > 0 ? 'PASS' : 'FAIL', `${segmentCount} segments rendered`)
 
@@ -126,12 +128,15 @@ async function runFullInteractiveAudit() {
     await page.goto(`${BASE_URL}/clone`, { waitUntil: 'networkidle' })
 
     // TC-CLN-01: Auth Gate Sign In
-    const signInBtn = page.locator('button:has-text("Đăng nhập")')
+    const signInBtn = page.locator('button', { hasText: 'Đăng nhập' }).first()
+    await signInBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
     if (await signInBtn.isVisible()) {
       await signInBtn.click()
-      await page.waitForTimeout(200)
+      await page.waitForTimeout(1000)
+    } else {
+      console.log('SignIn button not visible! Page content:', await page.content())
     }
-    const enrolFormVisible = await page.locator('form').isVisible()
+    const enrolFormVisible = await page.locator('form').waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)
     logResult('TC-CLN-01', 'Auth Gate unlock & enrolment form', enrolFormVisible ? 'PASS' : 'FAIL')
 
     // TC-CLN-02: Preloaded demo clone

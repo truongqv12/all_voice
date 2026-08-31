@@ -4,355 +4,83 @@
 
 **API Text-to-Speech tương thích OpenAI, đa engine — VieNeu (Việt) · Kokoro (Anh) · VOICEVOX (Nhật), ưu tiên CPU**
 
-Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [Triển khai](docs/deployment.md)
+Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [Triển khai](docs/deployment.md) · [Hướng dẫn API](docs/api-reference.md)
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![uv](https://img.shields.io/badge/deps-uv-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://platform.openai.com/docs/api-reference/audio)
-[![VieNeu-TTS](https://img.shields.io/badge/TTS-VieNeu-FF6B6B)](https://github.com/pnnbao97/VieNeu-TTS)
+
+<a href="https://www.buymeacoffee.com/" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
+
+<br/>
+
+<img src="assets/screenshots/tts-page.png" alt="TTS Page" width="800">
+
+<p align="center">
+  <img src="assets/screenshots/clone-page.png" alt="Clone Page" width="49%">
+  <img src="assets/screenshots/transcribe-page.png" alt="Transcribe Page" width="49%">
+</p>
+
+*Giao diện Frontend của ứng dụng với tính năng Sinh giọng nói (TTS), Tạo phụ đề (Transcribe) và Nhân bản giọng nói (Clone).*
 
 </div>
 
 ## Tổng quan
 
-`all-voice` là một cổng (gateway) Text-to-Speech: bên ngoài nói **chuẩn OpenAI Audio
-API**, bên trong cắm **bất kỳ engine TTS nào**. Phần lõi không bao giờ import trực
-tiếp một engine cụ thể — nó chỉ nói chuyện qua một interface `VoiceBackend` duy nhất
-thông qua registry, nên **thêm engine mới = 1 file adapter, không đụng phần lõi**.
-
-SDK `openai` gốc chạy được ngay, không cần sửa. Backend đầu tiên là
-[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) — tiếng Việt. Một engine
-duy nhất lo cả preset lẫn clone: trên CPU là engine ONNX (đọc preset **không cần
-torch**); **clone giọng cần thêm PyTorch** (speaker encoder của VieNeu dùng torch
-để tiền xử lý, kể cả trên engine ONNX).
+`all-voice` là một cổng (gateway) Audio API tương thích chuẩn OpenAI, cho phép cắm-rút bất kỳ engine TTS nào thông qua các adapter độc lập. Mặc định hệ thống tích hợp các model xuất sắc ưu tiên chạy trên CPU (ONNX).
+Bạn có thể sử dụng trực tiếp SDK của OpenAI mà không cần thay đổi code.
 
 ```mermaid
 flowchart LR
-    Client["OpenAI SDK / HTTP"] -->|"Bearer key"| Auth[Auth]
-    Auth --> Router["/v1/* routers"]
-    Router --> Reg["Registry: model → backend"]
-    Reg --> BE["VoiceBackend (interface)"]
-    BE --> VieNeu[VieNeuBackend]
-    BE -. thêm engine mới .-> Other[XyzBackend]
-    VieNeu --> Engine["1 engine · CPU=ONNX<br/>preset torch-free · clone cần torch"]
-    VieNeu -->|PCM| Enc["Encoder (PyAV)"]
-    Enc -->|"mp3/opus/aac/flac/wav/pcm"| Client
+    Client["OpenAI SDK / HTTP"] --> Auth[Auth]
+    Auth --> Router["/v1/audio/*"]
+    Router --> Reg["Registry"]
+    Reg --> VieNeu[VieNeuBackend]
+    Reg --> Kokoro[KokoroBackend]
+    Reg -. engine mới .-> Other[XyzBackend]
 ```
 
 ## ✨ Tính năng
 
-| | |
-|---|---|
-| 🔌 **Tương thích OpenAI** | `audio.speech`, giọng tùy chỉnh, models — cắm thẳng vào SDK `openai` |
-| 🧩 **Backend cắm-rút** | Engine mới = 1 adapter, tự xuất hiện trong `/v1/models` & `/v1/voices` |
-| 🎙️ **Clone giọng** | Enrol một lần từ mẫu 3–8s, tái dùng mãi bằng `voice_id` (lưu trên đĩa) |
-| 🎬 **Speech-to-Text** | `audio.transcriptions` → phụ đề **SRT/VTT** + timing câu/từ (faster-whisper); không dịch |
-| 🎛️ **Knob tinh chỉnh** | Chỉ `style` (kiểu đọc) — qua `extra_body`; sampling để VieNeu tự lo |
-| ⚡ **Ưu tiên CPU** | Preset ONNX không cần torch & nhanh; clone giọng cần thêm PyTorch |
-| 🔊 **6 định dạng** | mp3 · opus · aac · flac · wav · pcm (PyAV, không cần FFmpeg hệ thống) |
-| 🩺 **Dễ debug** | Log stdout + file xoay vòng, độ trễ từng request, traceback lỗi 500 |
+- 🔌 **Tương thích OpenAI**: Dùng trực tiếp với SDK `openai` gốc. Hỗ trợ đầy đủ `speech`, `transcriptions`, `voices`.
+- 🧩 **Backend cắm-rút**: Thêm AI Engine mới chỉ với 1 file adapter.
+- 🎙️ **Clone giọng**: Sinh giọng nói từ audio mẫu 3s - 8s.
+- 🎬 **Speech-to-Text**: Nhận dạng giọng nói, tạo phụ đề **SRT/VTT** với mốc thời gian (timing) chuẩn xác.
+- ⚡ **Tối ưu CPU**: Chạy mô hình ONNX trên CPU tốc độ cao (không bắt buộc dùng GPU).
+- 🔊 **Đa định dạng**: Hỗ trợ xuất mp3, opus, aac, flac, wav, pcm.
 
 ## 🚀 Bắt đầu nhanh
 
-<details>
-<summary><b>Yêu cầu</b></summary>
-
-- **[uv](https://docs.astral.sh/uv/)** — tự tải sẵn Python 3.12 đã ghim cho bạn.
-- Không cần FFmpeg hệ thống (PyAV đã kèm). Cần ~350 MB đĩa trống cho model.
-
-Cài uv (Linux/macOS): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-</details>
+Cài đặt [uv](https://docs.astral.sh/uv/) (Linux/macOS): `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 ```bash
-cp .env.example .env               # đặt API_KEYS
-uv sync --extra clone              # deps + VieNeu + PyTorch (cho clone giọng)
+cp .env.example .env               # Cấu hình API_KEYS của bạn
+uv sync --extra clone              # Cài đặt (kèm extra cho clone giọng)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8123
 ```
 
-> [!IMPORTANT]
-> Đặt `API_KEYS` thật trong `.env` trước khi mở service ra ngoài — đừng để `dev-key`.
+> **Chi tiết cách gọi API và cấu hình**: Xem [Hướng dẫn API (API Reference)](docs/api-reference.md).
+> 
+> **Triển khai Server (Systemd/Nginx)**: Xem [Hướng dẫn Triển khai](docs/deployment.md).
 
-> [!NOTE]
-> Model VieNeu (~313 MB) tải ở **request synth đầu tiên**, cache tại
-> `~/.cache/huggingface/hub` (đổi bằng `HF_HOME`).
+## ❤️ Mã nguồn mở được sử dụng
 
-Tài liệu API tương tác (tự sinh): **`http://localhost:8123/docs`** (Swagger) ·
-`/redoc` · `/openapi.json`.
+Dự án `all-voice` được xây dựng dựa trên sự đóng góp tuyệt vời từ cộng đồng mã nguồn mở. Xin gửi lời cảm ơn đến các tác giả của:
 
-## 🌐 Engines & ngôn ngữ
+- **[VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS)**: Động cơ TTS tiếng Việt xuất sắc.
+- **[Kokoro-82M](https://github.com/thewh1teagle/kokoro-onnx)**: TTS tiếng Anh siêu nhẹ (Int8/FP16).
+- **[VOICEVOX](https://github.com/VOICEVOX/voicevox_core)**: Công cụ tổng hợp giọng nói tiếng Nhật.
+- **[Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)**: Xử lý Speech-to-Text siêu tốc với CTranslate2.
+- **[FastAPI](https://fastapi.tiangolo.com/)**: Web framework hiện đại, hiệu năng cao.
 
-Mỗi engine là **một adapter cắm-rút**, tự xuất hiện trong `/v1/models` &
-`/v1/voices` **khi asset của nó đã cài** — thiếu thì bỏ qua im lặng, app vẫn chạy
-(deploy VieNeu-only không bị ảnh hưởng). Ngôn ngữ là **thuộc tính của giọng**:
-chọn ngôn ngữ = chọn `model` + `voice`. Tất cả chạy **in-process, torch-free**
-(onnxruntime), sinh audio 24 kHz (VieNeu 48 kHz) — encoder lo mọi định dạng.
+*Cảm ơn tác giả của VOICEVOX, các giọng nói tiếng Nhật đều tuân thủ yêu cầu ghi công nhân vật (vd `VOICEVOX:ずんだもん`).*
 
-| Ngôn ngữ | `model` | Engine | Clone | Cài |
-|---|---|---|---|---|
-| 🇻🇳 Việt | `vieneu` | [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) | ✅ (cần `--extra clone`) | mặc định |
-| 🇬🇧 Anh | `kokoro` | [Kokoro-82M v1.0](https://github.com/thewh1teagle/kokoro-onnx) — 28 giọng (20 US / 8 UK) | ❌ | `--extra en` + `espeak-ng` + `scripts/fetch-kokoro.sh` |
-| 🇯🇵 Nhật | `voicevox` | [VOICEVOX Core](https://github.com/VOICEVOX/voicevox_core) | ❌ | `--extra ja` + `scripts/fetch-voicevox.sh` |
+## 💖 Hỗ trợ dự án (Donate)
 
-**Kokoro (English).** Cần system package `espeak-ng` cho G2P.
+Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả phát triển thêm các tính năng mới, bạn có thể donate qua các kênh sau:
 
-```bash
-uv sync --extra en
-sudo apt-get install -y espeak-ng            # bắt buộc cho G2P tiếng Anh
-bash scripts/fetch-kokoro.sh                 # tải model int8 (~88 MB) + voices
-# KOKORO_PRECISION=fp16 bash scripts/fetch-kokoro.sh   # bản nặng hơn nếu cần
-```
+- **Buy Me A Coffee**: [buymeacoffee.com](https://www.buymeacoffee.com/) (Mua cho tác giả một ly cà phê ☕)
+- **Momo / VietQR**: Bạn có thể quét mã QR Momo hoặc VietQR ngay trong giao diện ứng dụng (trên máy tính hoặc Mobile) ở phần **Ủng hộ (Donate)**.
 
-```bash
-curl -s http://localhost:8123/v1/audio/speech -H "Authorization: Bearer dev-key" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"kokoro","voice":"af_heart","input":"Hello world.","response_format":"mp3"}' -o en.mp3
-```
-
-**VOICEVOX (Japanese).** Wheel `voicevox_core` **không có trên PyPI** → script cài
-từ GitHub release rồi tải OpenJTalk dict + VVM (khớp đúng path config mặc định).
-
-```bash
-uv sync --extra ja
-bash scripts/fetch-voicevox.sh               # cài wheel + tải dict + VVM
-```
-
-```bash
-# voice = style_id; xem danh sách qua GET /v1/voices?language=ja
-curl -s http://localhost:8123/v1/audio/speech -H "Authorization: Bearer dev-key" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"voicevox","voice":"3","input":"こんにちは、世界。","response_format":"wav"}' -o ja.wav
-```
-
-> [!IMPORTANT]
-> **Credit VOICEVOX:** điều khoản yêu cầu **ghi công nhân vật** khi phát hành audio
-> (vd `VOICEVOX:ずんだもん`). Tên giọng ở `/v1/voices?language=ja` đã kèm sẵn chuỗi
-> credit này để bạn hiển thị lại.
-
-> [!NOTE]
-> Bật engine mà **chưa tải asset** thì backend tự bỏ qua (log 1 dòng) — không phá
-> startup. Tắt hẳn để tiết kiệm RAM: `ENABLE_KOKORO=false` / `ENABLE_VOICEVOX=false`.
-
-## 🔌 API Endpoints
-
-Mọi route `/v1/*` cần header `Authorization: Bearer <key>`.
-
-| Method | Path | Mô tả |
-|--------|------|-------|
-| `POST` | `/v1/audio/speech` | Tổng hợp giọng nói (schema OpenAI) |
-| `POST` | `/v1/audio/transcriptions` | Nhận dạng giọng → transcript + phụ đề (cần extra `asr`) |
-| `GET`  | `/v1/models` | Liệt kê các backend đã đăng ký |
-| `GET`  | `/v1/voices` | Liệt kê giọng preset + giọng clone (mọi backend) |
-| `GET`  | `/v1/voices/{model}/{voice_id}/preview` | Nghe thử giọng (mp3) — công khai, không cần key (preset + clone) |
-| `POST` | `/v1/audio/voices` | Tạo giọng clone (multipart) |
-| `GET` · `DELETE` | `/v1/audio/voices/{id}` | Lấy / xóa một giọng clone |
-| `POST` | `/v1/audio/voice_consents` | Cấp consent id (để tương thích OpenAI) |
-| `GET`  | `/health` | Kiểm tra sống (không cần auth) |
-
-**Dùng với SDK OpenAI (không sửa gì):**
-
-```python
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8123/v1", api_key="dev-key")
-client.audio.speech.create(
-    model="vieneu", voice="Trúc Ly",
-    input="Xin chào, đây là all-voice.", response_format="mp3",
-).stream_to_file("out.mp3")
-```
-
-> [!TIP]
-> `model="tts-1"` và các tên giọng OpenAI (`alloy`, …) cũng được chấp nhận: model lạ
-> sẽ route về backend mặc định, giọng lạ về preset đầu tiên.
-
-## 🔊 Nghe thử giọng (preview)
-
-Mỗi giọng trong `GET /v1/voices` kèm sẵn `preview_url` — một câu mẫu chuẩn, đúng
-ngôn ngữ (vi/en/ja), tổng hợp **một lần** rồi cache ra đĩa (`data/previews/`).
-
-```bash
-# Preset: CÔNG KHAI, không cần key -> dùng thẳng trong <audio> của trình duyệt
-curl -s http://localhost:8123/v1/voices/vieneu/<voice_id>/preview -o preview.mp3
-```
-
-```html
-<audio src="http://localhost:8123/v1/voices/vieneu/<voice_id>/preview" controls></audio>
-```
-
-- **Cả giọng clone cũng công khai** — cùng URL, không cần key, nên nút "nghe thử"
-  trên UI chạy thẳng từ `preview_url` trong danh sách. (Lưu ý: preview clone tái
-  tạo chất giọng thật của một người; nếu cần siết lại, xem `voice_preview` trong
-  `app/routers/voices.py`.)
-- `GET /v1/voices?preview=base64` nhúng luôn `preview_base64` cho các giọng **đã
-  cache sẵn** (giọng chưa warm trả `null` — lời gọi list không bao giờ tự synth).
-- Preview của backend mặc định + giọng clone được warm sẵn lúc khởi động (chạy
-  nền, không chặn boot); VOICEVOX/Kokoro tạo lười ở lần nghe đầu tiên.
-
-## 🎙️ Clone giọng
-
-Enrol (`add_voice`) tốn vài chục giây nên là bước **một lần duy nhất** — bạn không
-bao giờ phải tải lại mẫu cho mỗi request.
-
-```python
-# 1) Enrol một lần -> nhận voice_id (lưu trên đĩa, sống qua restart).
-voice = client.audio.voices.create(name="My Voice", audio_sample=open("ref.wav", "rb"))
-
-# 2) Tái dùng mãi bằng id.
-client.audio.speech.create(model="vieneu", voice=voice.id,
-                           input="Xin chào!", response_format="mp3").stream_to_file("out.mp3")
-```
-
-Server mặc định tự sinh `voice_id` ngẫu nhiên duy nhất (`voice_…`) nếu không truyền `id`. Bạn cũng có thể **truyền `id` cố định** (ví dụ `id="voice_mc_nam"`) để khi cần cập nhật/ghi đè file mẫu mới thì ID không bị thay đổi. Mẫu lưu ở `data/voices/` (`samples/` + `registry.json`) và được enrol lại lúc khởi động.
-
-**Để clone cho chuẩn.** Độ giống phụ thuộc vào mẫu tham chiếu và knob `denoise`
-lúc enrol (mặc định bật, được lưu lại để restart tái tạo đúng y giọng cũ):
-
-| Field | Mặc định | Khi nào đổi / Ý nghĩa |
-|-------|----------|-----------------------|
-| `id` | `None` (auto) | **(Tùy chọn)** ID tùy chỉnh cố định (vd `voice_mc_nam`). Nếu trùng ID cũ, hệ thống sẽ ghi đè và nạp lại weights mới. |
-| `denoise` | `true` | Đặt **`false`** nếu mẫu **đã sạch**/thu studio — khử nhiễu ép có thể làm mờ chất giọng. Giữ `true` cho mẫu ồn (điện thoại/phòng vang). |
-
-> `use_ref_codes` không còn là tham số đầu vào; nó luôn bật (`true`) bên trong để
-> clone chuẩn nhất.
-
-```python
-# Mẫu gửi kèm ID cố định và tắt denoise (nếu mẫu đã sạch):
-import httpx
-httpx.post("http://localhost:8123/v1/audio/voices",
-           headers={"Authorization": "Bearer dev-key"},
-           data={"name": "MC Nam", "id": "voice_mc_nam", "denoise": "false"},
-           files={"audio_sample": open("clean_ref.wav", "rb")})
-```
-
-**Yêu cầu mẫu** (quan trọng ngang các knob): 3–8s, **một người nói**, nền sạch
-(không nhạc/echo), nói rõ và có ngữ điệu. VieNeu tự cắt silence 2 đầu và trộn về
-mono, nhưng **không** tự cắt clip quá dài — clip dài hoặc nhiều giọng sẽ làm loãng
-speaker embedding.
-
-## 🎛️ Knob tinh chỉnh
-
-Chỉ còn **một** knob duy nhất là `style`, truyền qua `extra_body` của SDK (client
-chuẩn không bị ảnh hưởng):
-
-```python
-client.audio.speech.create(
-    model="vieneu", voice="Trúc Ly", input="Ngày xửa ngày xưa...",
-    extra_body={"style": "doc_truyen"},
-)
-```
-
-`style` (tu_nhien/tin_tuc/doc_truyen) — kiểu đọc: tự nhiên / bản tin / kể chuyện.
-Các tham số sampling (`temperature`, `top_k`, `top_p`, `repetition_penalty`,
-`silence_p`, `crossfade_p`, `max_chars`) **không còn được phơi ra** — VieNeu tự lo
-theo mặc định nội bộ. Field `speed` của OpenAI vẫn **được chấp nhận để tương thích**
-nhưng là **no-op** với VieNeu. Cue cảm xúc (`[cười]`) và chuyển ngữ Việt⇄Anh chạy
-inline ngay trong `input`.
-
-## 🎬 Tạo phụ đề (Speech-to-Text)
-
-Chiều ngược lại: **audio → transcript + mốc thời gian**, dùng
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2, int8 trên
-CPU). Endpoint `POST /v1/audio/transcriptions` theo **đúng schema OpenAI** nên gọi
-thẳng bằng SDK `openai`. **Chỉ nhận dạng + gắn mốc thời gian — không dịch.**
-
-Cần cài thêm extra `asr` (không nằm trong base install cho nhẹ):
-
-```bash
-uv sync --extra asr        # kéo faster-whisper (thiếu extra → endpoint trả 503 rõ ràng)
-```
-
-```python
-from openai import OpenAI
-client = OpenAI(base_url="http://localhost:8123/v1", api_key="dev-key")
-
-# Phụ đề SRT (hoặc "vtt") — trả thẳng chuỗi phụ đề.
-srt = client.audio.transcriptions.create(
-    model="whisper-1", file=open("bai_giang.mp3", "rb"), response_format="srt",
-)
-open("bai_giang.srt", "w", encoding="utf-8").write(srt)
-
-# JSON đầy đủ: text + segments (mốc từng câu) + duration.
-verbose = client.audio.transcriptions.create(
-    model="whisper-1", file=open("bai_giang.mp3", "rb"), response_format="verbose_json",
-)
-
-# Karaoke: mốc từng TỪ (words[]) khi bật timestamp_granularities=["word"].
-words = client.audio.transcriptions.create(
-    model="whisper-1", file=open("bai_giang.mp3", "rb"),
-    response_format="verbose_json", timestamp_granularities=["word"],
-)
-```
-
-- `response_format`: `json` (mặc định, `{"text": ...}`) · `text` · `srt` · `vtt` · `verbose_json`.
-- `timestamp_granularities=["word"]` (chỉ với `verbose_json`) thêm mảng `words[]`, mỗi
-  từ có `start`/`end` — dùng cho hiệu ứng **karaoke**. Hiển thị do tool phía bạn tự lo.
-- `model` nhận mọi tên (vd `whisper-1`) và dùng engine cấu hình; đổi model qua `ASR_MODEL`.
-
-> [!NOTE]
-> Model whisper (`small` ~0.5 GB) tải ở **request transcribe đầu tiên**, cache tại
-> `~/.cache/huggingface/hub`. Đặt `ASR_MODEL=tiny` cho máy yếu / test nhanh.
-
-## 🚢 Triển khai
-
-Tự host trên Linux/macOS qua các script trong [`deploy/`](deploy/):
-
-```bash
-bash deploy/setup.sh                   # cài uv + deps đã khóa + .env + logs/
-sudo bash deploy/install-service.sh    # chạy nền như service systemd (Linux)
-```
-
-Service tự khởi động lại khi crash và khi reboot — không giữ terminal. Hướng dẫn đầy
-đủ: [docs/deployment.md](docs/deployment.md).
-
-**Mở công khai không cần đăng nhập** (API ẩn sau nginx + Cloudflare Tunnel, tầng
-anon-gate tự bảo vệ theo chi phí thật, SPA React `frontend/`): đặt
-`ANON_ENABLED=true`, xem [docs/deployment.md — "Public qua Cloudflare Tunnel"](docs/deployment.md)
-+ [`deploy/cloudflare-tunnel.md`](deploy/cloudflare-tunnel.md).
-
-## 🩺 Log & Debug
-
-Log ra **stdout + file xoay vòng** (`logs/app.log`, 5 MB × 5) — không dùng DB.
-
-| Logger | Ghi gì |
-|--------|--------|
-| `all_voice.startup` | device, các backend, số giọng clone |
-| `all_voice.request` | `METHOD path → status (độ trễ ms)` |
-| `all_voice.speech` | mỗi lần synth: model / voice / định dạng / số ký tự / thời lượng |
-| `all_voice.transcribe` | mỗi lần transcribe: model / bytes / định dạng / ngôn ngữ / số segment / thời lượng |
-| `all_voice.error` | traceback lỗi 500 (đồng thời trả về envelope lỗi chuẩn OpenAI) |
-
-`faulthandler` in traceback lỗi native (segfault) ra stderr. Dưới systemd,
-`server.log` bắt cả uvicorn + stderr; `journalctl -u all-voice -f` xem realtime.
-
-## ⚙️ Cấu hình (`.env`)
-
-`API_KEYS` · `DEVICE` (cpu/cuda/auto) · `DEFAULT_BACKEND` · `MAX_CONCURRENCY` ·
-`VOICES_DIR` · `HOST` · `PORT` (mặc định 8123) · `LOG_LEVEL` · `LOG_DIR` · `HF_HOME`.
-
-**Speech-to-Text (extra `asr`):** `ASR_MODEL` (mặc định `small`; tiny/base/small/medium/large-v3
-hoặc repo CTranslate2) · `ASR_COMPUTE_TYPE` (`int8` cho CPU, `float16` cho CUDA). ASR
-**dùng chung `MAX_CONCURRENCY`** với TTS — cùng một ngân sách job CPU, tăng khi máy khỏe.
-
-**Kokoro / English (extra `en`):** `ENABLE_KOKORO` (mặc định `true`) · `KOKORO_MODEL_PATH`
-· `KOKORO_VOICES_PATH` · `KOKORO_DEFAULT_VOICE` (`af_heart`). **VOICEVOX / Japanese
-(extra `ja`):** `ENABLE_VOICEVOX` (mặc định `true`) · `VOICEVOX_DICT_DIR` ·
-`VOICEVOX_VVM_DIR` · `VOICEVOX_ONNXRUNTIME` (mặc định = lib do `fetch-voicevox.sh` tải; rỗng = runtime sẵn trên loader path) ·
-`VOICEVOX_SPEAKER_ALLOWLIST` (rỗng = mọi style). Nguồn mặc định: `app/config.py`.
-Bật flag mà thiếu asset → engine skip an toàn; đăng ký chỉ khi package **và** file
-model có mặt.
-
-## 🧩 Thêm một Backend
-
-1. Tạo `app/backends/<engine>_backend.py` kế thừa `VoiceBackend`
-   (`name`, `list_voices()`, `synthesize()`).
-2. Đăng ký trong `app/main._register_backends()`: `registry.register(MyBackend())`.
-
-Không phải sửa router/schema/auth/encoder — nó tự xuất hiện trong `/v1/models` và
-`/v1/voices`. Chi tiết: [docs/kien-truc-va-mo-rong.md](docs/kien-truc-va-mo-rong.md).
-
-## 🧪 Test
-
-```bash
-uv sync --extra clone --extra asr   # test transcribe cần extra asr (dùng model tiny)
-uv run pytest -q                     # end-to-end: dựng app, gọi mọi endpoint
-```
+Cảm ơn bạn rất nhiều!

@@ -47,6 +47,17 @@ export function AudioDropZone({ onFile, error, disabled = false }: { onFile(file
           <Upload className="shrink-0" size={17} />
           <span>{t('transcribe.chooseFile')}</span>
         </Button>
+        <Button
+          disabled={disabled}
+          variant="secondary"
+          onClick={() => {
+            fetch('/audio/mock-sample.mp3')
+              .then(r => r.blob())
+              .then(blob => onFile(new File([blob], 'sample.mp3', { type: 'audio/mpeg' })))
+          }}
+        >
+          {t('transcribe.trySample')}
+        </Button>
       </div>
 
       <input
