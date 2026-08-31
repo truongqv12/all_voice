@@ -11,16 +11,13 @@ Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [
 [![uv](https://img.shields.io/badge/deps-uv-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://platform.openai.com/docs/api-reference/audio)
 
-<a href="https://buymeacoffee.com/truongtt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
+<a href="https://buymeacoffee.com/truongtt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" width="145" height="40" ></a>
 
 <br/>
 
-<img src="./assets/screenshots/tts-page-desktop.png" alt="TTS Page" width="800">
+<img src="assets/screenshots/tts-page-desktop.png" alt="TTS Page" width="800">
 
-<p align="center">
-  <img src="./assets/screenshots/clone-page-desktop.png" alt="Clone Page" width="49%">
-  <img src="./assets/screenshots/transcribe-page-desktop.png" alt="Transcribe Page" width="49%">
-</p>
+<p align="center"><img src="assets/screenshots/clone-page-desktop.png" alt="Clone Page" width="49%"> <img src="assets/screenshots/transcribe-page-desktop.png" alt="Transcribe Page" width="49%"></p>
 
 *Giao diện Frontend của ứng dụng với tính năng Sinh giọng nói (TTS), Tạo phụ đề (Transcribe) và Nhân bản giọng nói (Clone).*
 
@@ -85,8 +82,6 @@ Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả phát tr
 
 Hoặc quét mã QR dưới đây để ủng hộ trực tiếp qua Vietcombank:
 
-<p align="center">
-  <img src="./assets/screenshots/vcb-qr.png" alt="Donate VietQR VCB 1062811353" width="300">
-</p>
+<p align="center"><img src="assets/screenshots/vcb-qr.png" alt="Donate VietQR VCB 1062811353" width="300"></p>
 
 Cảm ơn bạn rất nhiều!
