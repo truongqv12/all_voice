@@ -10,6 +10,7 @@ import { toSrt } from '../../lib/subtitle/to-srt'
 import { toTxt } from '../../lib/subtitle/to-txt'
 import { toVtt } from '../../lib/subtitle/to-vtt'
 import { SubtitlePreview } from './subtitle-preview'
+import { downloadText } from '../../lib/download'
 
 type ExportFormat = 'srt' | 'vtt' | 'txt'
 function content(format: ExportFormat, result: TranscriptionResult, options: SubtitleOptions) {
@@ -31,13 +32,8 @@ export function SubtitleExportPanel({ result, filename }: { result: Transcriptio
     setOptions(current => ({ ...current, [key]: value }))
   }
   function download() {
-    const blob = new Blob([exportData.text], { type: format === 'txt' ? 'text/plain' : 'text/vtt' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${safeName(filename)}.${format}`
-    link.click()
-    URL.revokeObjectURL(url)
+    const mimeType = format === 'srt' ? 'application/x-subrip' : format === 'vtt' ? 'text/vtt' : 'text/plain'
+    downloadText(exportData.text, `${safeName(filename)}.${format}`, mimeType)
   }
   async function copy() {
     await navigator.clipboard.writeText(exportData.text)
@@ -52,8 +48,8 @@ export function SubtitleExportPanel({ result, filename }: { result: Transcriptio
   ]
 
   const granularityOptions: SelectOption[] = [
-    { value: 'word', label: t('transcribe.wordAccurate'), description: 'Khớp nhịp từ', icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" /> },
-    { value: 'sentence', label: t('transcribe.sentence'), description: 'Theo câu trọn vẹn', icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" /> },
+    { value: 'line', label: t('transcribe.lineMode'), description: t('transcribe.lineModeDescription'), icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" /> },
+    { value: 'word', label: t('transcribe.wordMode'), description: t('transcribe.wordModeDescription'), icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" /> },
   ]
 
   return (
@@ -84,29 +80,33 @@ export function SubtitleExportPanel({ result, filename }: { result: Transcriptio
           />
         </div>
 
-        <label className="grid gap-1.5 text-sm font-semibold">
-          {t('transcribe.charsPerLine')}
-          <input
-            className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid md:text-sm"
-            type="number"
-            min="20"
-            max="60"
-            value={options.maxCharsPerLine}
-            onChange={event => update('maxCharsPerLine', Number(event.target.value))}
-          />
-        </label>
+        {options.granularity === 'line' && (
+          <>
+            <label className="grid gap-1.5 text-sm font-semibold">
+              {t('transcribe.charsPerLine')}
+              <input
+                className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid md:text-sm"
+                type="number"
+                min="20"
+                max="60"
+                value={options.maxCharsPerLine}
+                onChange={event => update('maxCharsPerLine', Number(event.target.value))}
+              />
+            </label>
 
-        <label className="grid gap-1.5 text-sm font-semibold">
-          {t('transcribe.linesPerCue')}
-          <input
-            className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid md:text-sm"
-            type="number"
-            min="1"
-            max="2"
-            value={options.maxLinesPerCue}
-            onChange={event => update('maxLinesPerCue', Number(event.target.value))}
-          />
-        </label>
+            <label className="grid gap-1.5 text-sm font-semibold">
+              {t('transcribe.linesPerCue')}
+              <input
+                className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid md:text-sm"
+                type="number"
+                min="1"
+                max="2"
+                value={options.maxLinesPerCue}
+                onChange={event => update('maxLinesPerCue', Number(event.target.value))}
+              />
+            </label>
+          </>
+        )}
       </div>
 
       <SubtitlePreview cues={exportData.cues} />

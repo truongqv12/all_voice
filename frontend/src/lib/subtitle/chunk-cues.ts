@@ -13,12 +13,38 @@ function duration(start: number, end: number, text: string) {
   return Math.min(subtitleConventions.maxCueSeconds, Math.max(subtitleConventions.minCueSeconds, end - start, readingTime))
 }
 
+function fallbackTokens(value: string) {
+  const text = value.trim()
+  if (!text) return []
+  const whitespaceTokens = text.split(/\s+/u).filter(Boolean)
+  if (whitespaceTokens.length > 1 || !cjk.test(text)) return whitespaceTokens
+  if (typeof Intl.Segmenter !== 'function') return Array.from(text)
+
+  const tokens: string[] = []
+  for (const part of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)) {
+    if (part.isWordLike || !tokens.length) tokens.push(part.segment)
+    else tokens[tokens.length - 1] += part.segment
+  }
+  return tokens
+}
+
+function timedWords(segment: TranscriptSegment): TranscriptWord[] {
+  if (segment.words.length) return segment.words
+  const tokens = fallbackTokens(segment.text)
+  const step = (segment.end - segment.start) / Math.max(tokens.length, 1)
+  return tokens.map((text, index) => ({
+    text,
+    start: segment.start + index * step,
+    end: segment.start + (index + 1) * step,
+  }))
+}
+
 function linesFor(words: TranscriptWord[], maxChars: number, maxLines: number) {
   const lines: string[] = ['']
   for (const word of words) {
     const line = lines[lines.length - 1]
     const separator = line ? ' ' : ''
-    if ((line + separator + word.text).length > maxChars && lines.length < maxLines) lines.push(word.text)
+    if (line && (line + separator + word.text).length > maxChars && lines.length < maxLines) lines.push(word.text)
     else lines[lines.length - 1] += separator + word.text
   }
   return lines
@@ -41,13 +67,13 @@ function makeCue(words: TranscriptWord[], options: SubtitleOptions): SubtitleCue
 
 export function chunkCues(segments: TranscriptSegment[], input: Partial<SubtitleOptions> = {}): SubtitleCue[] {
   const options = { ...defaultSubtitleOptions, ...input }
-  if (options.granularity === 'sentence') return segments.flatMap(segment => {
-    const words = segment.words
-    return words.length ? chunkCues([{ ...segment, words }], { ...options, granularity: 'word' }) : []
-  })
+  const words = segments.flatMap(timedWords)
+  if (options.granularity === 'word') {
+    return words.map(word => ({ start: word.start, end: word.end, lines: [word.text] }))
+  }
   const cues: SubtitleCue[] = []
   let buffer: TranscriptWord[] = []
-  for (const word of segments.flatMap(segment => segment.words)) {
+  for (const word of words) {
     if (buffer.length && mustSplit(buffer, word, options)) { cues.push(makeCue(buffer, options)); buffer = [] }
     buffer.push(word)
     if (punctuation.test(word.text) && buffer.length > 1) { cues.push(makeCue(buffer, options)); buffer = [] }

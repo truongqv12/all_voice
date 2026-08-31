@@ -10,11 +10,11 @@ export const subtitleConventions = {
 export type SubtitleOptions = {
   maxCharsPerLine: number
   maxLinesPerCue: number
-  granularity: 'word' | 'sentence'
+  granularity: 'line' | 'word'
 }
 
 export const defaultSubtitleOptions: SubtitleOptions = {
   maxCharsPerLine: subtitleConventions.maxCharsPerLine,
   maxLinesPerCue: subtitleConventions.maxLinesPerCue,
-  granularity: 'word',
+  granularity: 'line',
 }

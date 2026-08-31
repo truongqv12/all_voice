@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, Pause, Play, RotateCcw } from 'lucide-react'
+import { Download, Pause, Play, RotateCcw, SplitSquareVertical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { SynthResult } from '../../api/types'
 import { Button } from '../../components/ui/button'
@@ -10,12 +10,27 @@ import type { SynthParams } from '../../api/types'
 import { defaultSubtitleOptions } from '../../lib/subtitle/conventions'
 import { useGenerateSubtitle } from './use-generate-subtitle'
 import { LimitStates } from '../status/limit-states'
+import { Select, type SelectOption } from '../../components/ui/select'
 
 export function AudioResultCard({ result, params, onRegenerate }: { result: SynthResult; params: SynthParams; onRegenerate(): void }) {
   const { t } = useTranslation()
   const player = useAudioPlayer()
   const subtitle = useGenerateSubtitle()
   const [subtitleOptions, setSubtitleOptions] = useState(defaultSubtitleOptions)
+  const granularityOptions: SelectOption[] = [
+    {
+      value: 'line',
+      label: t('transcribe.lineMode'),
+      description: t('transcribe.lineModeDescription'),
+      icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" />,
+    },
+    {
+      value: 'word',
+      label: t('transcribe.wordMode'),
+      description: t('transcribe.wordModeDescription'),
+      icon: <SplitSquareVertical size={15} className="shrink-0 text-[var(--color-primary)]" />,
+    },
+  ]
 
   useEffect(() => {
     return () => {
@@ -28,7 +43,6 @@ export function AudioResultCard({ result, params, onRegenerate }: { result: Synt
   return (
     <section className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface-soft)] p-4">
       <h2 className="font-semibold">{t('compose.result')}</h2>
-      {result.previewOnly && <p className="mt-1 text-xs text-[var(--color-muted)]">{t('compose.mp3Preview')}</p>}
 
       <audio
         ref={player.audioRef}
@@ -63,13 +77,88 @@ export function AudioResultCard({ result, params, onRegenerate }: { result: Synt
           <RotateCcw className="shrink-0" size={16} />
           <span>{t('compose.regenerate')}</span>
         </Button>
-        {appConfig.features.ttsToSrt && (
-          <Button variant="secondary" disabled={subtitle.state === 'generating'} onClick={() => void subtitle.generate({ result, params, options: subtitleOptions })}>
+      </div>
+      {appConfig.features.ttsToSrt && (
+        <section className="mt-4 rounded-[var(--radius-control)] border border-[var(--color-border)] p-3">
+          <p className="text-sm leading-6 text-[var(--color-muted)]">
+            {result.engine === 'voicevox' && subtitleOptions.granularity === 'line'
+              ? t('compose.subtitleNative')
+              : t('compose.subtitleApproximate')}
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <span className="mb-1 block text-sm font-medium">{t('transcribe.granularity')}</span>
+              <Select
+                value={subtitleOptions.granularity}
+                options={granularityOptions}
+                disabled={subtitle.state === 'generating'}
+                onChange={value => setSubtitleOptions(current => ({
+                  ...current,
+                  granularity: value as typeof current.granularity,
+                }))}
+                aria-label={t('transcribe.granularity')}
+              />
+            </div>
+            {subtitleOptions.granularity === 'line' && (
+              <>
+                <label className="grid gap-1 text-sm font-medium">
+                  {t('transcribe.charsPerLine')}
+                  <input
+                    className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal md:text-sm"
+                    type="number"
+                    min="20"
+                    max="60"
+                    disabled={subtitle.state === 'generating'}
+                    value={subtitleOptions.maxCharsPerLine}
+                    onChange={event => setSubtitleOptions(current => ({
+                      ...current,
+                      maxCharsPerLine: Number(event.target.value),
+                    }))}
+                  />
+                </label>
+                <label className="grid gap-1 text-sm font-medium">
+                  {t('transcribe.linesPerCue')}
+                  <input
+                    className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal md:text-sm"
+                    type="number"
+                    min="1"
+                    max="2"
+                    disabled={subtitle.state === 'generating'}
+                    value={subtitleOptions.maxLinesPerCue}
+                    onChange={event => setSubtitleOptions(current => ({
+                      ...current,
+                      maxLinesPerCue: Number(event.target.value),
+                    }))}
+                  />
+                </label>
+              </>
+            )}
+          </div>
+          {subtitle.state === 'generating' && (
+            <div className="mt-3 flex items-center gap-3">
+              <span role="status" className="text-sm font-medium">{t('compose.subtitleGenerating')}</span>
+              <Button variant="quiet" onClick={subtitle.cancel}>{t('action.cancel')}</Button>
+            </div>
+          )}
+          {subtitle.state === 'error' && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <LimitStates kind={subtitle.error && subtitle.error !== 'generic' ? subtitle.error : null} />
+              <Button variant="secondary" onClick={() => void subtitle.generate({ result, params, options: subtitleOptions })}>{t('action.retry')}</Button>
+            </div>
+          )}
+          {subtitle.state === 'success' && (
+            <p className="mt-3 text-sm text-[var(--color-primary)]">{t('compose.subtitleDownloaded')}</p>
+          )}
+          <Button
+            className="mt-3 w-full sm:w-auto"
+            variant="secondary"
+            disabled={subtitle.state === 'generating'}
+            onClick={() => void subtitle.generate({ result, params, options: subtitleOptions })}
+          >
             <span>{t('compose.subtitle')}</span>
           </Button>
-        )}
-      </div>
-      {appConfig.features.ttsToSrt && <section className="mt-4 rounded-[var(--radius-control)] border border-[var(--color-border)] p-3"><p className="text-sm leading-6 text-[var(--color-muted)]">{result.engine === 'voicevox' ? t('compose.subtitleNative') : t('compose.subtitleApproximate')}</p><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium">{t('transcribe.charsPerLine')}<input className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal md:text-sm" type="number" min="20" max="60" value={subtitleOptions.maxCharsPerLine} onChange={event => setSubtitleOptions(current => ({ ...current, maxCharsPerLine: Number(event.target.value) }))} /></label><label className="grid gap-1 text-sm font-medium">{t('transcribe.linesPerCue')}<input className="min-h-11 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-base font-normal md:text-sm" type="number" min="1" max="2" value={subtitleOptions.maxLinesPerCue} onChange={event => setSubtitleOptions(current => ({ ...current, maxLinesPerCue: Number(event.target.value) }))} /></label></div>{subtitle.state === 'generating' && <div className="mt-3 flex items-center gap-3"><span role="status" className="text-sm font-medium">{t('compose.subtitleGenerating')}</span><Button variant="quiet" onClick={subtitle.cancel}>{t('action.cancel')}</Button></div>}{subtitle.state === 'error' && <div className="mt-3 flex flex-wrap items-center gap-3"><LimitStates kind={subtitle.error && subtitle.error !== 'generic' ? subtitle.error : null} /><Button variant="secondary" onClick={subtitle.retry}>{t('action.retry')}</Button></div>}{subtitle.state === 'success' && <p className="mt-3 text-sm text-[var(--color-primary)]">{t('compose.subtitleDownloaded')}</p>}</section>}
+        </section>
+      )}
     </section>
   )
 }

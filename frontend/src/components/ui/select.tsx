@@ -16,6 +16,7 @@ interface SelectProps {
   searchable?: boolean
   searchPlaceholder?: string
   className?: string
+  disabled?: boolean
   'aria-label'?: string
 }
 
@@ -27,6 +28,7 @@ export function Select({
   searchable = false,
   searchPlaceholder = 'Tìm kiếm...',
   className = '',
+  disabled = false,
   'aria-label': ariaLabel,
 }: SelectProps) {
   const [open, setOpen] = useState(false)
@@ -66,6 +68,10 @@ export function Select({
     }
   }, [open, searchable])
 
+  useEffect(() => {
+    if (disabled) setOpen(false)
+  }, [disabled])
+
   function handleKeyDown(event: React.KeyboardEvent) {
     if (event.key === 'Escape') {
       setOpen(false)
@@ -97,13 +103,14 @@ export function Select({
     <div ref={containerRef} className={`relative ${className}`} onKeyDown={handleKeyDown}>
       <button
         type="button"
+        disabled={disabled}
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-controls={listboxId}
         aria-label={ariaLabel || selectedOption?.label || placeholder}
         onClick={() => setOpen(prev => !prev)}
-        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-left text-sm font-medium transition-colors hover:border-[var(--color-muted)] focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid active:scale-[0.99]"
+        className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-left text-sm font-medium transition-colors hover:border-[var(--color-muted)] focus-visible:border-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)] focus-visible:outline-offset-2 focus-visible:outline-solid active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="flex min-w-0 items-center gap-2 truncate">
           {selectedOption?.icon}

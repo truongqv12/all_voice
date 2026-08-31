@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultSubtitleOptions } from '../../lib/subtitle/conventions'
-import { nativeCuesToSubtitleCues } from './use-generate-subtitle'
+import { nativeCuesToSubtitleCues, shouldUseNativeTiming } from './use-generate-subtitle'
 
 describe('nativeCuesToSubtitleCues', () => {
   it('keeps one SRT cue per VOICEVOX accent phrase and wraps long text', () => {
@@ -25,5 +25,11 @@ describe('nativeCuesToSubtitleCues', () => {
     expect(cues).toHaveLength(2)
     expect(cues[0]).toMatchObject({ start: 0, end: 16 / 15 })
     expect(cues[1]).toMatchObject({ start: 16 / 15, end: 2 })
+  })
+
+  it('uses native VOICEVOX timing only for line output', () => {
+    expect(shouldUseNativeTiming('voicevox', 'line')).toBe(true)
+    expect(shouldUseNativeTiming('voicevox', 'word')).toBe(false)
+    expect(shouldUseNativeTiming('vieneu', 'line')).toBe(false)
   })
 })

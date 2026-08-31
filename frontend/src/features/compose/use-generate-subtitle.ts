@@ -8,6 +8,7 @@ import type { SubtitleCue } from '../../lib/subtitle/chunk-cues'
 import { chunkCues } from '../../lib/subtitle/chunk-cues'
 import type { SubtitleOptions } from '../../lib/subtitle/conventions'
 import { toSrt } from '../../lib/subtitle/to-srt'
+import { downloadText } from '../../lib/download'
 
 export type SubtitleState = 'idle' | 'generating' | 'success' | 'error'
 type SubtitleRequest = { result: SynthResult; params: SynthParams; options: SubtitleOptions }
@@ -31,13 +32,8 @@ export function nativeCuesToSubtitleCues(cues: { start: number; end: number; tex
   })
 }
 
-function download(content: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: 'application/x-subrip;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${filename.replace(/\.[^.]+$/u, '')}.srt`
-  link.click()
-  URL.revokeObjectURL(url)
+export function shouldUseNativeTiming(engine: SynthResult['engine'], granularity: SubtitleOptions['granularity']) {
+  return engine === 'voicevox' && granularity === 'line'
 }
 
 export function useGenerateSubtitle() {
@@ -45,22 +41,19 @@ export function useGenerateSubtitle() {
   const tts = useTtsApi()
   const requestId = useRef(0)
   const controller = useRef<AbortController | null>(null)
-  const lastRequest = useRef<SubtitleRequest | null>(null)
   const [state, setState] = useState<SubtitleState>('idle')
   const [error, setError] = useState<LimitKind | 'generic' | ''>('')
-  const [native, setNative] = useState(false)
 
   async function generate(request: SubtitleRequest) {
     const id = ++requestId.current
     const aborter = new AbortController()
     controller.current?.abort()
     controller.current = aborter
-    lastRequest.current = request
     setState('generating')
     setError('')
-    setNative(request.result.engine === 'voicevox')
     try {
-      const cues = request.result.engine === 'voicevox'
+      const native = shouldUseNativeTiming(request.result.engine, request.options.granularity)
+      const cues = native
         ? nativeCuesToSubtitleCues(await tts.getSpeechTiming(request.params, { signal: aborter.signal }), request.options)
         : chunkCues((await transcribe.transcribe(
           new File([request.result.audioBlob], request.result.filename, { type: request.result.audioBlob.type || 'audio/mpeg' }),
@@ -68,7 +61,7 @@ export function useGenerateSubtitle() {
           { prompt: request.params.text, signal: aborter.signal },
         )).segments, request.options)
       if (id !== requestId.current) return
-      download(toSrt(cues), request.result.filename)
+      downloadText(toSrt(cues), `${request.result.filename.replace(/\.[^.]+$/u, '')}.srt`, 'application/x-subrip')
       setState('success')
     } catch (cause) {
       if (id !== requestId.current) return
@@ -90,15 +83,11 @@ export function useGenerateSubtitle() {
     setState('idle')
   }
 
-  function retry() {
-    if (lastRequest.current) void generate(lastRequest.current)
-  }
-
   useEffect(() => () => {
     requestId.current += 1
     controller.current?.abort()
     controller.current = null
   }, [])
 
-  return { state, error, native, generate, cancel, retry }
+  return { state, error, generate, cancel }
 }

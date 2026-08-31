@@ -1,6 +1,8 @@
 import { chromium } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
 
 const BASE_URL = 'http://127.0.0.1:4273'
+const testAudioPath = fileURLToPath(new URL('../public/audio/mock-sample.mp3', import.meta.url))
 
 async function runFullInteractiveAudit() {
   const browser = await chromium.launch({ headless: true })
@@ -102,10 +104,10 @@ async function runFullInteractiveAudit() {
     console.log(`\n--- [2/5] SPEECH-TO-TEXT & SUBTITLE EXPORT FLOW ---`)
     await page.goto(`${BASE_URL}/transcribe`, { waitUntil: 'networkidle' })
 
-    // TC-ASR-01: 1-Click Sample Audio
-    const sampleBtn = page.locator('button:has-text("Thử với âm thanh mẫu")')
-    logResult('TC-ASR-01', '1-Click sample audio button visible', await sampleBtn.isVisible() ? 'PASS' : 'FAIL')
-    await sampleBtn.click()
+    // TC-ASR-01: Upload a real file through the user-facing input
+    const fileInput = page.locator('input[type="file"]')
+    await fileInput.setInputFiles(testAudioPath)
+    logResult('TC-ASR-01', 'Audio file upload accepted', 'PASS')
 
     // Wait for transcript result (can take ~20s for Whisper initialization)
     await page.waitForSelector('text=Bản chép lời', { timeout: 40000 })

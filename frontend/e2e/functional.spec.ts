@@ -43,12 +43,19 @@ test.describe('Phase 6: Functional QA', () => {
     await expect(page.getByRole('button', { name: 'Tạo giọng nói' })).toBeEnabled()
   })
 
+  test('does not expose sample shortcuts in TTS or transcription', async ({ page }) => {
+    await expect(page.getByText('Điền mẫu nhanh:')).toHaveCount(0)
+    await page.goto('/transcribe')
+    await expect(page.getByRole('button', { name: 'Chọn tệp âm thanh' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /âm thanh mẫu/i })).toHaveCount(0)
+  })
+
   test('shows a clear preview error without synthesizing a fallback', async ({ page }) => {
     await page.route('**/v1/voices/vieneu/vi-demo/preview', route => route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }))
     let speechRequests = 0
     await page.route('**/v1/audio/speech', route => { speechRequests += 1; return route.fulfill({ body: audio }) })
     await page.locator('article').filter({ hasText: 'Giọng Việt' }).getByRole('button', { name: /Nghe thử/ }).click()
-    await expect(page.getByRole('alert')).toContainText('chưa có mẫu')
+    await expect(page.getByRole('alert')).toContainText('chưa có bản nghe thử')
     expect(speechRequests).toBe(0)
   })
 
@@ -87,5 +94,33 @@ test.describe('Phase 6: Functional QA', () => {
     await page.getByRole('button', { name: 'Xuất phụ đề' }).click()
     expect(JSON.parse((await timing).postData() || '{}')).toMatchObject({ model: 'voicevox', streaming: false })
     await expect(page.getByText('Phụ đề tiếng Nhật dùng nhịp mora VOICEVOX native để khớp audio.')).toBeVisible()
+  })
+
+  test('uses ASR timing for word-by-word VOICEVOX subtitles', async ({ page }) => {
+    await page.locator('article').filter({ hasText: '日本語' }).getByRole('button').last().click()
+    await page.route('**/v1/audio/speech', route => route.fulfill({ contentType: 'audio/mpeg', body: audio }))
+    let nativeTimingRequests = 0
+    await page.route('**/v1/audio/speech/timing', route => {
+      nativeTimingRequests += 1
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ cues: [] }) })
+    })
+    await page.route('**/v1/audio/transcriptions', route => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        language: 'ja',
+        segments: [{ id: 1, start: 0, end: 1, text: 'テスト' }],
+        words: [{ word: 'テスト', start: 0, end: 1 }],
+      }),
+    }))
+    await page.locator('textarea').fill('テスト')
+    await page.getByRole('button', { name: 'Tạo giọng nói' }).click()
+    await page.getByRole('combobox', { name: 'Chế độ phụ đề' }).click()
+    await page.getByRole('option', { name: /Từng từ/ }).click()
+    await expect(page.getByText('Phụ đề gần đúng:')).toBeVisible()
+    const transcription = page.waitForRequest('**/v1/audio/transcriptions')
+    await page.getByRole('button', { name: 'Xuất phụ đề' }).click()
+    await transcription
+    await expect(page.getByText('Đã tải tệp phụ đề .srt.')).toBeVisible()
+    expect(nativeTimingRequests).toBe(0)
   })
 })

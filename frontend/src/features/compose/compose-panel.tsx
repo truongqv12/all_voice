@@ -37,30 +37,6 @@ export function ComposePanel() {
     <div className="space-y-4">
       <div>
         <TextEditor value={text} onChange={setText} disabled={job.state === 'generating'} />
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-[var(--color-muted)]">{t('compose.quickFill')}</span>
-          <button disabled={job.state === 'generating'}
-            type="button"
-            onClick={() => setText(t('compose.sampleShort'))}
-            className="cursor-pointer rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-          >
-            Chào mừng ngắn
-          </button>
-          <button disabled={job.state === 'generating'}
-            type="button"
-            onClick={() => setText(t('compose.sampleDialogue'))}
-            className="cursor-pointer rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-          >
-            Thời tiết / Hội thoại
-          </button>
-          <button disabled={job.state === 'generating'}
-            type="button"
-            onClick={() => setText(t('compose.sampleStream'))}
-            className="cursor-pointer rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-[var(--focus-ring)]"
-          >
-            Đoạn văn dài
-          </button>
-        </div>
         <div className="mt-2">
           <FileDropZone onText={setText} disabled={job.state === 'generating'} />
         </div>

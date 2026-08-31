@@ -38,7 +38,7 @@
   "voice.loadErrorTitle": "Không tải được danh sách giọng",
   "voice.loadErrorDescription": "Không thể tải danh sách giọng. Hãy thử lại.",
   "voice.retry": "Thử lại",
-  "voice.previewUnavailable": "Giọng này chưa có mẫu nghe thử.",
+  "voice.previewUnavailable": "Giọng này chưa có bản nghe thử.",
   "voice.emptyTitle": "Không có giọng khớp",
   "voice.emptyDescription": "Thử đổi bộ lọc hoặc xoá từ khoá tìm kiếm.",
   "voice.resetAction": "Đặt lại bộ lọc",
@@ -77,34 +77,31 @@
   "compose.subtitleNative": "Phụ đề tiếng Nhật dùng nhịp mora VOICEVOX native để khớp audio.",
   "compose.subtitleGenerating": "Đang tạo phụ đề…",
   "compose.subtitleDownloaded": "Đã tải tệp phụ đề .srt.",
-  "compose.mp3Preview": "Âm thanh là MP3 mẫu dùng chung để xem trước giao diện.",
   "compose.emptyHint": "Dán văn bản, chọn giọng, rồi bấm Tạo giọng nói để nghe kết quả.",
-  "compose.sampleShort": "Xin chào, chào mừng bạn đến với All Voice - nền tảng tổng hợp giọng đọc AI tự nhiên và chân thực.",
-  "compose.sampleDialogue": "Chào buổi sáng! Hôm nay thời tiết Hà Nội rất đẹp, nhiệt độ dao động từ 24 đến 28 độ C. Chúc bạn một ngày làm việc hiệu quả.",
-  "compose.sampleStream": "All Voice là hệ sinh thái xử lý giọng nói toàn diện, tích hợp công nghệ AI tiên tiến giúp chuyển đổi văn bản thành giọng đọc tự nhiên, nhận diện giọng nói chuẩn xác và nhân bản giọng đọc an toàn. Trải nghiệm ngay trên mọi thiết bị.",
-  "compose.quickFill": "Điền mẫu nhanh:",
   "transcribe.eyebrow": "CHUYỂN GIỌNG NÓI THÀNH VĂN BẢN",
   "transcribe.title": "Đọc lại âm thanh, rồi xuất phụ đề đúng chuẩn.",
   "transcribe.description": "Tải một tệp âm thanh để tạo bản chép lời và điều chỉnh phụ đề ngay trên trình duyệt.",
   "transcribe.uploadTitle": "Thả tệp âm thanh vào đây",
   "transcribe.uploadDescription": "Hỗ trợ .mp3, .wav hoặc .m4a, tối đa 25 MB.",
   "transcribe.chooseFile": "Chọn tệp âm thanh",
-  "transcribe.trySample": "Thử với âm thanh mẫu (1-click)",
   "transcribe.error.format": "Chỉ nhận tệp .mp3, .wav hoặc .m4a.",
   "transcribe.error.size": "Tệp vượt quá giới hạn 25 MB.",
   "transcribe.error.generic": "Không thể tạo bản chép lời. Hãy thử lại.",
   "transcribe.progress.uploading": "Đang chuẩn bị tệp âm thanh",
   "transcribe.progress.transcribing": "Đang nhận dạng giọng nói",
-  "transcribe.sampleData": "KẾT QUẢ",
+  "transcribe.resultEyebrow": "KẾT QUẢ",
   "transcribe.transcript": "Bản chép lời",
   "transcribe.language.vi": "Tiếng Việt",
   "transcribe.language.en": "Tiếng Anh",
+  "transcribe.language.ja": "Tiếng Nhật",
   "transcribe.exportEyebrow": "XUẤT PHỤ ĐỀ",
   "transcribe.exportTitle": "Chỉnh nhịp và tải xuống",
   "transcribe.format": "Định dạng",
-  "transcribe.granularity": "Độ chi tiết",
-  "transcribe.wordAccurate": "Theo từ",
-  "transcribe.sentence": "Theo câu",
+  "transcribe.granularity": "Chế độ phụ đề",
+  "transcribe.lineMode": "Theo dòng",
+  "transcribe.lineModeDescription": "Gộp từ và tự động xuống dòng",
+  "transcribe.wordMode": "Từng từ",
+  "transcribe.wordModeDescription": "Mỗi từ là một phụ đề",
   "transcribe.charsPerLine": "Ký tự tối đa mỗi dòng",
   "transcribe.linesPerCue": "Dòng tối đa mỗi cue",
   "transcribe.download": "Tải xuống",
@@ -183,8 +180,8 @@
   ,"limits.audio-invalid.description": "Hãy chọn một tệp âm thanh có thể mở được."
   ,"limits.audio-too-large.title": "Tệp âm thanh quá lớn."
   ,"limits.audio-too-large.description": "Giới hạn tải lên là 25 MB."
-  ,"limits.no-preview.title": "Chưa có mẫu nghe thử."
-  ,"limits.no-preview.description": "Giọng này chưa có tệp mẫu để phát."
+  ,"limits.no-preview.title": "Chưa có bản nghe thử."
+  ,"limits.no-preview.description": "Giọng này chưa có tệp nghe thử để phát."
   ,"limits.auth.title": "Không xác thực được yêu cầu."
   ,"limits.auth.description": "Kiểm tra lại khóa API hoặc dùng chế độ công khai nếu được bật."
   ,"limits.timeout.title": "Yêu cầu mất quá lâu."
