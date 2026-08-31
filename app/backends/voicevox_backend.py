@@ -25,7 +25,8 @@ import threading
 
 import numpy as np
 
-from .base import AudioResult, Voice, VoiceBackend
+from .base import AudioResult, SubtitleTimingCue, Voice, VoiceBackend
+from ..streaming import sentence_split
 
 
 def _decode_wav_f32(wav_bytes: bytes) -> tuple[np.ndarray, int]:
@@ -125,18 +126,8 @@ class VoicevoxBackend(VoiceBackend):
         vvm_path = self._style_to_vvm.get(style_id)
         if vvm_path is None:
             raise ValueError(f"Unknown VOICEVOX style id: {voice!r}")
-        # Build the synthesizer AND load/track VVMs under one lock: `_loaded` is
-        # coupled to this single `self._synth`, so a concurrent cold start must
-        # not race two Synthesizer instances (one would skip a load it never got).
-        # Synthesis is already serialised here, so this costs no concurrency.
         with self._lock:
-            synth = self._get_synth()
-            if vvm_path not in self._loaded:
-                from voicevox_core.blocking import VoiceModelFile
-
-                with VoiceModelFile.open(vvm_path) as vm:
-                    synth.load_voice_model(vm)
-                self._loaded.add(vvm_path)
+            synth = self._load_voice_model(vvm_path)
             if abs(float(speed) - 1.0) < 1e-6:
                 wav = synth.tts(text, style_id)
             else:
@@ -150,6 +141,44 @@ class VoicevoxBackend(VoiceBackend):
                 wav = synth.synthesis(query, style_id)
         pcm, sr = _decode_wav_f32(wav)
         return AudioResult(pcm=pcm, sample_rate=sr)
+
+    def subtitle_timing(
+        self, text: str, voice: str, speed: float = 1.0, chunk_max_chars: int | None = None
+    ) -> list[SubtitleTimingCue]:
+        """Build queries matching buffered or sentence-streamed VOICEVOX audio."""
+        self._discover()
+        style_id = _parse_style_id(voice)
+        vvm_path = self._style_to_vvm.get(style_id)
+        if vvm_path is None:
+            raise ValueError(f"Unknown VOICEVOX style id: {voice!r}")
+        with self._lock:
+            synth = self._load_voice_model(vvm_path)
+            make_query = getattr(synth, "create_audio_query", None) or getattr(synth, "audio_query")
+            chunks = sentence_split(text, chunk_max_chars) if chunk_max_chars else [text]
+            cues: list[SubtitleTimingCue] = []
+            offset = 0.0
+            for chunk in chunks:
+                query = make_query(chunk, style_id)
+                query.speed_scale = float(speed)
+                chunk_cues = _accent_phrases_to_cues(query)
+                cues.extend(
+                    SubtitleTimingCue(start=cue.start + offset, end=cue.end + offset, text=cue.text)
+                    for cue in chunk_cues
+                )
+                if chunk_cues:
+                    offset = chunk_cues[-1].end + offset
+        return cues
+
+    def _load_voice_model(self, vvm_path: str):
+        """Load a VVM once while the backend synthesis lock is held."""
+        synth = self._get_synth()
+        if vvm_path not in self._loaded:
+            from voicevox_core.blocking import VoiceModelFile
+
+            with VoiceModelFile.open(vvm_path) as vm:
+                synth.load_voice_model(vm)
+            self._loaded.add(vvm_path)
+        return synth
 
 
 def _iter_vvm(vvm_dir: str):
@@ -168,6 +197,42 @@ def _parse_style_id(voice: str) -> int:
     # Accept a bare style id ("3") or a "{speaker_uuid}:{style_id}" pair.
     tail = voice.rsplit(":", 1)[-1]
     return int(tail)
+
+
+def _field(value, name: str, default=None):
+    return value.get(name, default) if isinstance(value, dict) else getattr(value, name, default)
+
+
+def _mora_seconds(mora) -> float:
+    consonant = _field(mora, "consonant_length") or 0.0
+    vowel = _field(mora, "vowel_length") or 0.0
+    return float(consonant) + float(vowel)
+
+
+def _accent_phrases_to_cues(query) -> list[SubtitleTimingCue]:
+    """Convert VOICEVOX AudioQuery moras into one caption per accent phrase."""
+    speed = max(float(_field(query, "speed_scale", 1.0)), 0.01)
+    cursor = float(_field(query, "pre_phoneme_length", 0.0)) / speed
+    cues: list[SubtitleTimingCue] = []
+    for phrase in _field(query, "accent_phrases", []):
+        moras = _field(phrase, "moras", [])
+        text = "".join(str(_field(mora, "text", "")) for mora in moras).strip()
+        duration = sum(_mora_seconds(mora) for mora in moras)
+        duration += _mora_seconds(_field(phrase, "pause_mora")) if _field(phrase, "pause_mora") is not None else 0.0
+        end = cursor + duration / speed
+        if text and end > cursor:
+            cues.append(SubtitleTimingCue(start=cursor, end=end, text=text))
+        cursor = end
+    # VOICEVOX appends this tail after the final accent phrase. It does not form
+    # caption text, but the final cue must span the generated audio duration.
+    if cues:
+        last = cues[-1]
+        cues[-1] = SubtitleTimingCue(
+            start=last.start,
+            end=last.end + float(_field(query, "post_phoneme_length", 0.0)) / speed,
+            text=last.text,
+        )
+    return cues
 
 
 def _parse_allowlist(raw: str) -> set[str]:

@@ -77,7 +77,7 @@ async def create_stream(
         try:
             async for data in synth_stream(
                 backend=backend, voice=voice, chunks=chunks,
-                ident=ident, request=request, options=options, settings=settings,
+                ident=ident, request=request, speed=req.speed, options=options, settings=settings,
             ):
                 yield data
         finally:

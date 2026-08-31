@@ -16,7 +16,7 @@ from .config import get_settings
 from .docs_ui import get_audio_swagger_ui_html
 from .limits import GateError
 from .logging_config import get_logger, setup_logging
-from .routers import models, speech, speech_stream, transcriptions, voices, voices_admin
+from .routers import models, speech, speech_stream, speech_timing, transcriptions, voices, voices_admin
 from .voice_store import voice_store
 
 
@@ -163,6 +163,7 @@ def create_app() -> FastAPI:
         threading.Thread(target=_cache_sweeper, name="cache-evict", daemon=True).start()
 
     app.include_router(speech.router, prefix="/v1")
+    app.include_router(speech_timing.router, prefix="/v1")
     app.include_router(speech_stream.router, prefix="/v1")
     app.include_router(transcriptions.router, prefix="/v1")
     app.include_router(voices.router, prefix="/v1")

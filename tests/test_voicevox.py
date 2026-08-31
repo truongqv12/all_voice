@@ -21,6 +21,7 @@ AUTH = {"Authorization": "Bearer test-key"}
 from conftest import assert_real_audio, save_wav  # noqa: E402
 from app.backends.voicevox_backend import (  # noqa: E402
     VoicevoxBackend,
+    _accent_phrases_to_cues,
     _allowed,
     _decode_wav_f32,
     _parse_allowlist,
@@ -71,6 +72,26 @@ def test_voicevox_is_available_false_without_assets(tmp_path):
         voicevox_vvm_dir = str(tmp_path / "no_vvms")
 
     assert VoicevoxBackend.is_available(S) is False
+
+
+def test_accent_phrases_to_cues_uses_mora_pause_and_speed():
+    query = {
+        "speed_scale": 2.0,
+        "pre_phoneme_length": 0.2,
+        "post_phoneme_length": 0.2,
+        "accent_phrases": [{
+            "moras": [
+                {"text": "テ", "consonant_length": 0.1, "vowel_length": 0.2},
+                {"text": "ス", "consonant_length": 0.1, "vowel_length": 0.2},
+            ],
+            "pause_mora": {"text": "、", "consonant_length": None, "vowel_length": 0.4},
+        }],
+    }
+    cues = _accent_phrases_to_cues(query)
+    assert len(cues) == 1
+    assert cues[0].text == "テス"
+    assert cues[0].start == pytest.approx(0.1)
+    assert cues[0].end == pytest.approx(0.7)
 
 
 # --- Synth (needs wheel + dict + VVM) ---

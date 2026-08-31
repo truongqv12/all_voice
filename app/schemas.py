@@ -122,6 +122,10 @@ class StreamSpeechRequest(BaseModel):
         description="Tên preset, id giọng clone (`voice_...`), hoặc object `{\"id\": ...}`.",
         examples=["Trúc Ly"],
     )
+    speed: float = Field(
+        default=1.0, ge=0.25, le=4.0,
+        description="Tốc độ đọc 0.25–4.0; áp dụng khi backend hỗ trợ tốc độ gốc.",
+    )
     style: str | None = Field(
         default=None,
         description="Kiểu đọc; giá trị hợp lệ do backend quy định (VieNeu: tu_nhien / tin_tuc / doc_truyen).",
@@ -148,6 +152,39 @@ class StreamSpeechRequest(BaseModel):
                 raise ValueError("voice object must contain a non-empty 'id'")
             return str(voice_id)
         return v
+
+
+class SpeechTimingRequest(BaseModel):
+    """Supplemental VOICEVOX subtitle timing request; speech API remains unchanged."""
+
+    model: str = Field(description="Must identify the VOICEVOX backend.")
+    input: str = Field(min_length=1, max_length=20_000)
+    voice: str | dict[str, Any]
+    speed: float = Field(default=1.0, ge=0.25, le=4.0)
+    streaming: bool = Field(
+        default=False,
+        description="True khi audio được tạo bằng /audio/stream; timing phản chiếu tách câu của stream.",
+    )
+
+    @field_validator("voice")
+    @classmethod
+    def _normalize_voice(cls, v: str | dict[str, Any]) -> str:
+        if isinstance(v, dict):
+            voice_id = v.get("id")
+            if not voice_id:
+                raise ValueError("voice object must contain a non-empty 'id'")
+            return str(voice_id)
+        return v
+
+
+class SubtitleTimingCue(BaseModel):
+    start: float
+    end: float
+    text: str
+
+
+class SpeechTimingResponse(BaseModel):
+    cues: list[SubtitleTimingCue]
 
 
 class VoiceInfo(BaseModel):

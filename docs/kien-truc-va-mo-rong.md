@@ -98,6 +98,7 @@ serialize bằng một khóa (lock) trong backend.
 | `app/audio/encoder.py` | PCM → mp3/opus/aac/flac/wav/pcm (PyAV + stdlib) |
 | `app/voice_store.py` | Lưu mẫu giọng clone + registry.json (đĩa) |
 | `app/routers/speech.py` | `POST /v1/audio/speech` |
+| `app/routers/speech_timing.py` | `POST /v1/audio/speech/timing` (mốc native VOICEVOX cho SRT, không đổi OpenAI speech) |
 | `app/routers/transcriptions.py` | `POST /v1/audio/transcriptions` (speech-to-text; xem mục 11) |
 | `app/routers/models.py` | `GET /v1/models` |
 | `app/routers/voices.py` | `GET /v1/voices` (gộp preset + clone) |

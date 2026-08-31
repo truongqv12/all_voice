@@ -35,6 +35,15 @@ class AudioResult:
     sample_rate: int
 
 
+@dataclass(frozen=True)
+class SubtitleTimingCue:
+    """A caption unit with timestamps measured from a backend's native prosody."""
+
+    start: float
+    end: float
+    text: str
+
+
 class InvalidOption(ValueError):
     """A backend rejects a tuning/enrolment option (bad key or value).
 
@@ -61,6 +70,12 @@ class VoiceBackend(ABC):
 
         `options` carries backend tuning knobs (currently just `style`). A
         backend maps the keys it understands and ignores the rest."""
+
+    def subtitle_timing(
+        self, text: str, voice: str, speed: float = 1.0, chunk_max_chars: int | None = None
+    ) -> list[SubtitleTimingCue]:
+        """Return native timing when an engine can supply it without ASR."""
+        raise NotImplementedError(f"Backend '{self.name}' does not expose native subtitle timing")
 
     def register_voice(
         self,

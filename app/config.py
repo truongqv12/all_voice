@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # tier. Longer input -> 400 pointing at /v1/audio/stream (keeps one synth under
     # Cloudflare's 100s edge timeout — CF 524). TRUSTED is bounded only by the
     # OpenAI-compatible schema max (4096).
-    anon_max_chars_buffered: int = 1200
+    anon_max_chars_buffered: int = 2000
     # Per-IP concurrency + global admission queue. Over either -> 429 immediately
     # (never an unbounded wait). `request_timeout_s` bounds the wait for a synth
     # slot, not the synth itself (a running thread can't be cancelled — #3).

@@ -56,9 +56,11 @@ class _FakeBackend:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.speeds: list[float] = []
 
     def synthesize(self, text, voice, speed=1.0, options=None):
         self.calls.append(text)
+        self.speeds.append(speed)
         return AudioResult(pcm=np.zeros(4096, dtype=np.float32), sample_rate=48000)
 
 
@@ -110,6 +112,17 @@ def test_disconnect_stops_before_next_chunk():
         request=req, options={}, settings=Settings(),
     ))
     assert backend.calls == ["First sentence."]  # chunk 2+ never synthesized
+
+
+def test_stream_forwards_native_speed_to_every_chunk():
+    reset_state()
+    backend = _FakeBackend()
+    _drive(synth_stream(
+        backend=backend, voice="v", chunks=["First.", "Second."],
+        ident=Identity(ip="1.2.3.4", tier=Tier.TRUSTED), request=_FakeRequest(),
+        options={}, settings=Settings(), speed=1.5,
+    ))
+    assert backend.speeds == [1.5, 1.5]
 
 
 def test_budget_charged_only_for_yielded_chunks(tmp_path, monkeypatch):

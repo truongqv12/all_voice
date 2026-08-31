@@ -115,6 +115,7 @@ async def synth_stream(
     request: Request,
     options: dict,
     settings: Settings | None = None,
+    speed: float = 1.0,
 ):
     """Yield one continuous MP3 stream, sentence by sentence. See module docstring."""
     settings = settings or get_settings()
@@ -139,7 +140,7 @@ async def synth_stream(
             try:
                 async with admit(ident.ip, settings):
                     result = await anyio.to_thread.run_sync(
-                        backend.synthesize, chunk, voice, 1.0, options
+                        backend.synthesize, chunk, voice, speed, options
                     )
             except (Overloaded, InvalidOption) as exc:
                 # Mid-stream overload or a bad option: refund this chunk and end the
