@@ -30,3 +30,10 @@ export interface SynthResult {
   previewOnly: boolean
   engine: Voice['engine']
 }
+
+export interface UsageStats {
+  /** Distinct IPs currently using the app ("đang dùng"). */
+  active: number
+  /** Distinct IPs that have ever used the service ("đã dùng"). */
+  total: number
+}

@@ -5,8 +5,9 @@ import { LanguageToggle } from '../ui/language-toggle'
 import { ThemeToggle } from '../ui/theme-toggle'
 import { FeatureNav } from './feature-nav'
 import { SupportDialog } from '../../features/support/support-dialog'
+import { LiveBadge } from '../../features/status/live-badge'
 
-export function Header() {
+export function Header({ activeUsers = null }: { activeUsers?: number | null }) {
   const { t } = useTranslation()
   const [supportOpen, setSupportOpen] = useState(false)
 
@@ -19,6 +20,7 @@ export function Header() {
           </a>
           <FeatureNav />
           <div className="ml-auto flex items-center gap-1">
+            <LiveBadge count={activeUsers} />
             <span className="hidden rounded-full bg-[var(--color-primary-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--color-primary)] xl:inline-flex">
               {t('shell.voiceLanguage')}
             </span>

@@ -16,7 +16,8 @@ from .config import get_settings
 from .docs_ui import get_audio_swagger_ui_html
 from .limits import GateError
 from .logging_config import get_logger, setup_logging
-from .routers import models, speech, speech_stream, speech_timing, transcriptions, voices, voices_admin
+from .presence import presence
+from .routers import models, speech, speech_stream, speech_timing, stats, transcriptions, voices, voices_admin
 from .voice_store import voice_store
 
 
@@ -169,17 +170,24 @@ def create_app() -> FastAPI:
     app.include_router(voices.router, prefix="/v1")
     app.include_router(voices_admin.router, prefix="/v1")
     app.include_router(models.router, prefix="/v1")
+    app.include_router(stats.router, prefix="/v1")
 
     req_log = get_logger("request")
 
     @app.middleware("http")
     async def _log_requests(request: Request, call_next):
         start = time.perf_counter()
+        ip = client_ip(request, settings)
+        # Broad presence for the live "đang dùng" gauge: any request marks this
+        # IP active, except the stats poll itself (would inflate the count) and
+        # health checks (infra, not a user).
+        if request.url.path not in ("/v1/stats", "/health"):
+            presence.touch(ip)
         response = await call_next(request)
         elapsed_ms = (time.perf_counter() - start) * 1000
         req_log.info(
             "%s %s ip=%s -> %d (%.0fms)",
-            request.method, request.url.path, client_ip(request, settings),
+            request.method, request.url.path, ip,
             response.status_code, elapsed_ms,
         )
         return response
