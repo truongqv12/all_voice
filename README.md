@@ -11,7 +11,7 @@ Tiếng Việt | [Kiến trúc & mở rộng](docs/kien-truc-va-mo-rong.md) · [
 [![uv](https://img.shields.io/badge/deps-uv-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 [![OpenAI Compatible](https://img.shields.io/badge/OpenAI-Compatible-412991?logo=openai&logoColor=white)](https://platform.openai.com/docs/api-reference/audio)
 
-<a href="https://www.buymeacoffee.com/" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
+<a href="https://buymeacoffee.com/truongtt" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px !important;width: 145px !important;" ></a>
 
 <br/>
 
@@ -80,7 +80,11 @@ Dự án `all-voice` được xây dựng dựa trên sự đóng góp tuyệt v
 
 Nếu bạn thấy dự án hữu ích và muốn ủng hộ tác giả phát triển thêm các tính năng mới, bạn có thể donate qua các kênh sau:
 
-- **Buy Me A Coffee**: [buymeacoffee.com](https://www.buymeacoffee.com/) (Mua cho tác giả một ly cà phê ☕)
+- **Buy Me A Coffee**: [buymeacoffee.com/truongtt](https://buymeacoffee.com/truongtt) (Mua cho tác giả một ly cà phê ☕)
 - **Momo / VietQR**: Bạn có thể quét mã QR Momo hoặc VietQR ngay trong giao diện ứng dụng (trên máy tính hoặc Mobile) ở phần **Ủng hộ (Donate)**.
+
+Hoặc quét mã QR dưới đây để truy cập trang Buy Me A Coffee:
+
+<img src="assets/screenshots/donate-qr.png" alt="Donate QR Code" width="200">
 
 Cảm ơn bạn rất nhiều!
