@@ -147,6 +147,12 @@ class Settings(BaseSettings):
     preview_text_en: str = ""
     preview_text_ja: str = ""
 
+    # --- Live usage stats (public GET /v1/stats gauge) ---
+    # An IP counts as "currently using" if it made any request within this many
+    # seconds. Held purely in memory (safe on the single anon worker); the count
+    # is aggregate-only and never exposes an IP.
+    stats_active_window_s: int = 180
+
     @property
     def api_key_set(self) -> set[str]:
         return {k.strip() for k in self.api_keys.split(",") if k.strip()}

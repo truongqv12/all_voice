@@ -22,6 +22,8 @@
   "placeholder.status": "Bản mẫu đang được dựng",
   "footer.mock": "Bản xem trước dùng dữ liệu mẫu, chưa gọi API thật.",
   "footer.live": "Đang kết nối với dịch vụ giọng nói.",
+  "stats.active": "{{display}} đang dùng",
+  "stats.total": "{{display}} người đã dùng",
   "a11y.skipToContent": "Bỏ qua để tới nội dung",
   "a11y.featureNavigation": "Điều hướng tính năng",
   "a11y.close": "Đóng",

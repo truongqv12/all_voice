@@ -220,6 +220,13 @@ class ModelList(BaseModel):
     data: list[ModelInfo]
 
 
+class UsageStats(BaseModel):
+    """Aggregate usage gauge for the public GET /v1/stats endpoint (no PII)."""
+
+    active: int = Field(description="Distinct client IPs active in the trailing window (\"đang dùng\").")
+    total: int = Field(description="Distinct client IPs that have ever used the service (\"đã dùng\").")
+
+
 class CustomVoice(BaseModel):
     """Object custom-voice của OpenAI (response của POST /v1/audio/voices)."""
 

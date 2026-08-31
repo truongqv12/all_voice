@@ -22,6 +22,8 @@
   "placeholder.status": "Prototype in progress",
   "footer.mock": "This preview uses mock data and makes no live API calls.",
   "footer.live": "Connected to the voice service.",
+  "stats.active": "{{display}} online",
+  "stats.total": "{{display}} people served",
   "a11y.skipToContent": "Skip to content",
   "a11y.featureNavigation": "Feature navigation",
   "a11y.close": "Close",

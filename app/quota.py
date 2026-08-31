@@ -56,6 +56,8 @@ class Quota:
         self._buckets: dict[str, tuple[float, float]] = {}  # ip -> (tokens, last_refill)
         self._db_lock = threading.Lock()
         self._conn: sqlite3.Connection | None = None
+        # (total_distinct_ips, computed_at_monotonic) — cache for total_users().
+        self._total_users_cache: tuple[int, float] | None = None
         # None -> resolve from settings at connect time (production singleton);
         # an explicit path lets tests point at a throwaway DB.
         self._db_path = db_path
@@ -172,11 +174,35 @@ class Quota:
             ).fetchone()
         return (row[0], row[1]) if row else (0, 0)
 
+    def total_users(self, ttl_s: float = 60.0) -> int:
+        """Distinct IPs that have ever used the service (any day in the usage
+        table) — the "đã dùng" figure for the public stats gauge.
+
+        Cached for ``ttl_s`` seconds: ``COUNT(DISTINCT ip)`` scans the table and
+        this feeds a frequently-polled endpoint, so we don't recompute per hit.
+        A DB error is non-fatal (a gauge must never take the endpoint down): we
+        serve the last known value, or 0 if we have none yet.
+        """
+        now = time.monotonic()
+        with self._db_lock:
+            cached = self._total_users_cache
+            if cached is not None and now - cached[1] < ttl_s:
+                return cached[0]
+            try:
+                conn = self._connect()
+                row = conn.execute("SELECT COUNT(DISTINCT ip) FROM usage").fetchone()
+                total = int(row[0]) if row and row[0] is not None else 0
+            except sqlite3.OperationalError:
+                return cached[0] if cached is not None else 0
+            self._total_users_cache = (total, now)
+            return total
+
     def reset(self) -> None:
         """Drop all in-memory buckets + close the DB handle (test isolation)."""
         with self._bucket_lock:
             self._buckets.clear()
         with self._db_lock:
+            self._total_users_cache = None
             if self._conn is not None:
                 self._conn.close()
                 self._conn = None
