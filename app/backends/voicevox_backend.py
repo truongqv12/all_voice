@@ -20,10 +20,14 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
+import logging
 import os
 import threading
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from .base import AudioResult, InvalidOption, SubtitleTimingCue, Voice, VoiceBackend
 from ..streaming import sentence_split
@@ -83,6 +87,53 @@ def _apply_query_tuning(query, tuning: dict[str, float]) -> None:
             setattr(query, key, value)
 
 
+def _apply_user_dict(ojt, path: str) -> None:
+    """Load persistent reading overrides from a JSON file into the OpenJtalk dict.
+
+    Fixes OpenJTalk 誤読 (e.g. ピンク筋 read as ピンクスジ instead of ピンクキン) on rare
+    compounds it mis-guesses. Best-effort: a missing path/file, a core without
+    UserDict, or one bad entry never fails synthesis — it just falls back to
+    OpenJTalk's own reading. Schema per word: surface, pronunciation (katakana),
+    accent_type (int, 0=heiban), word_type (default COMMON_NOUN), priority (0-10)."""
+    if not path or not os.path.exists(path):
+        return
+    try:
+        from voicevox_core import UserDictWord
+        from voicevox_core.blocking import UserDict
+    except Exception as exc:  # a core build without UserDict
+        logger.warning("VOICEVOX user dict skipped (UserDict unavailable): %s", exc)
+        return
+    try:
+        with open(path, encoding="utf-8") as fh:
+            words = json.load(fh).get("words", [])
+    except (OSError, ValueError) as exc:
+        logger.warning("VOICEVOX user dict %s unreadable: %s", path, exc)
+        return
+    user_dict = UserDict()
+    added = 0
+    for entry in words:
+        surface = entry.get("surface")
+        pronunciation = entry.get("pronunciation")
+        if not surface or not pronunciation:
+            continue
+        try:
+            user_dict.add_word(
+                UserDictWord(
+                    surface,
+                    pronunciation,
+                    int(entry.get("accent_type", 0)),
+                    entry.get("word_type", "COMMON_NOUN"),
+                    int(entry.get("priority", 5)),
+                )
+            )
+            added += 1
+        except Exception as exc:  # a single malformed entry must not drop the rest
+            logger.warning("VOICEVOX user dict word %r skipped: %s", surface, exc)
+    if added:
+        ojt.use_user_dict(user_dict)
+        logger.info("VOICEVOX user dict: %d reading override(s) from %s", added, path)
+
+
 class VoicevoxBackend(VoiceBackend):
     name = "voicevox"
 
@@ -90,6 +141,7 @@ class VoicevoxBackend(VoiceBackend):
         self._dict_dir = settings.voicevox_dict_dir
         self._vvm_dir = settings.voicevox_vvm_dir
         self._ort_path = settings.voicevox_onnxruntime or ""
+        self._user_dict_path = getattr(settings, "voicevox_user_dict", "") or ""
         self._allowlist = _parse_allowlist(settings.voicevox_speaker_allowlist)
         self._synth = None
         self._lock = threading.Lock()
@@ -128,6 +180,7 @@ class VoicevoxBackend(VoiceBackend):
                 else Onnxruntime.load_once()
             )
             ojt = OpenJtalk(self._dict_dir)
+            _apply_user_dict(ojt, self._user_dict_path)
             self._synth = Synthesizer(ort, ojt)
         return self._synth
 

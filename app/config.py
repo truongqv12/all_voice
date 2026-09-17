@@ -131,6 +131,11 @@ class Settings(BaseSettings):
     # Comma-separated `style_id` or `speaker_uuid:style_id` allowed on the API;
     # empty = expose every style found in the loadable VVMs.
     voicevox_speaker_allowlist: str = ""
+    # JSON of persistent OpenJTalk reading overrides (fixes 誤読 on rare compounds
+    # OpenJTalk mis-guesses, e.g. ピンク筋→ピンクキン not ピンクスジ). Applied to the
+    # OpenJtalk instance at synth init via voicevox_core's UserDict. Empty or a
+    # missing file = no overrides. See the file for the schema.
+    voicevox_user_dict: str = "app/data/voicevox_user_dict.json"
 
     # --- Voice previews ("nghe thử") ---
     # Where per-voice preview mp3s + sidecars are cached (safe to delete;

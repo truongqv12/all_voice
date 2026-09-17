@@ -1,0 +1,11 @@
+{
+  "_comment": "Persistent OpenJTalk reading overrides for VOICEVOX (voicevox_core UserDict). Fixes 誤読 where OpenJTalk mis-guesses a rare/compound reading. surface=text as written in the script; pronunciation=KATAKANA reading; accent_type=mora index of the accent nucleus (0=heiban/flat, calm — safe default; tune per term if a read sounds off); word_type one of PROPER_NOUN|COMMON_NOUN|VERB|ADJECTIVE|SUFFIX; priority 0-10 (higher wins over OpenJTalk's guess). Add a term only when it recurs or needs a fixed accent; first line of defense stays kana-rewriting in the script.",
+  "words": [
+    { "surface": "ピンク筋", "pronunciation": "ピンクキン", "accent_type": 0, "priority": 8, "note": "pink/slow-twitch muscle; OpenJTalk reads 筋 as スジ after katakana -> ピンクスジ" },
+    { "surface": "腸腰筋", "pronunciation": "チョウヨウキン", "accent_type": 0, "priority": 8, "note": "iliopsoas; mis-read チョウコシスジ" },
+    { "surface": "赤筋", "pronunciation": "セッキン", "accent_type": 0, "priority": 8, "note": "red/slow muscle; mis-read アカスジ" },
+    { "surface": "白筋", "pronunciation": "ハッキン", "accent_type": 0, "priority": 8, "note": "white/fast muscle; mis-read シロスジ" },
+    { "surface": "大腿四頭筋", "pronunciation": "ダイタイシトウキン", "accent_type": 0, "priority": 8, "note": "quadriceps; mis-read ダイタイヨントオスジ" },
+    { "surface": "前脛骨筋", "pronunciation": "ゼンケイコツキン", "accent_type": 0, "priority": 8, "note": "tibialis anterior; mis-read ゼンケエコツスジ" }
+  ]
+}
