@@ -107,15 +107,32 @@ def _apply_pause_scale(query, factor: float) -> None:
     preceding accent phrase's optional `pause_mora`, whose `vowel_length` is the
     pause duration (seconds, before speed_scale). Scaling these is the core-native
     way to give an elderly listener more room to follow. Phrases with no pause
-    (mid-clause) have `pause_mora=None` and are left untouched."""
+    (mid-clause) have `pause_mora=None` and are left untouched. The core exposes
+    these nested structures as either objects or plain dicts depending on version,
+    so read/write both; the list is reassigned so the edit is sure to reach the
+    query before synthesis."""
     if factor == 1.0:
         return
-    for phrase in getattr(query, "accent_phrases", None) or []:
-        pause = getattr(phrase, "pause_mora", None)
-        if pause is not None:
-            length = getattr(pause, "vowel_length", None)
-            if length:
-                pause.vowel_length = float(length) * factor
+    phrases = _field(query, "accent_phrases", None) or []
+    touched = False
+    for phrase in phrases:
+        pause = _field(phrase, "pause_mora", None)
+        if pause is None:
+            continue
+        length = _field(pause, "vowel_length", None)
+        if not length:
+            continue
+        new_length = float(length) * factor
+        if isinstance(pause, dict):
+            pause["vowel_length"] = new_length
+        else:
+            pause.vowel_length = new_length
+        touched = True
+    if touched:
+        try:
+            query.accent_phrases = phrases
+        except Exception:
+            pass  # in-place edit already applied; some cores expose a read-only list
 
 
 def _apply_user_dict(ojt, path: str) -> None:
