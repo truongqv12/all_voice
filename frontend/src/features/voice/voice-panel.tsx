@@ -12,16 +12,20 @@ export function VoicePanel({ onSelected }: { onSelected?(): void }) {
   const demoError = demo === 'error'
   const shownVoices = demo === 'empty' ? [] : filters.filtered
   return (
-    <section aria-label={t('voice.title')} className="space-y-4">
-      <VoiceFilterBar {...filters} />
-      <VoiceGrid
-        voices={shownVoices}
-        loading={loading}
-        error={error || demoError}
-        onRetry={() => void reload()}
-        onReset={filters.reset}
-        onSelected={onSelected}
-      />
+    <section aria-label={t('voice.title')} className="flex flex-col gap-4 min-h-0 h-full">
+      <div className="shrink-0">
+        <VoiceFilterBar {...filters} />
+      </div>
+      <div className="flex-1 overflow-y-auto pr-2 -mr-2 min-h-0 pb-4">
+        <VoiceGrid
+          voices={shownVoices}
+          loading={loading}
+          error={error || demoError}
+          onRetry={() => void reload()}
+          onReset={filters.reset}
+          onSelected={onSelected}
+        />
+      </div>
     </section>
   )
 }

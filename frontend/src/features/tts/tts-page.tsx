@@ -5,7 +5,6 @@ import { BottomSheet } from '../../components/ui/bottom-sheet'
 import { SelectedVoiceChip } from '../voice/selected-voice-chip'
 import { VoicePanel } from '../voice/voice-panel'
 import { ComposePanel } from '../compose/compose-panel'
-import { UsageGuide } from '../guide/usage-guide'
 import { SupportPanel } from '../support/support-panel'
 
 export default function TtsPage() {
@@ -26,7 +25,7 @@ export default function TtsPage() {
 
       {/* 7:3 DESKTOP SPLIT LAYOUT */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(22rem,0.75fr)]">
-        {/* LEFT 70% COLUMN: Textarea, Presets, Synth Controls, Audio Result, Usage Guide */}
+        {/* LEFT 70% COLUMN: Textarea, Presets, Synth Controls, Audio Result */}
         <section className="space-y-4 rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:p-6">
           <div className="lg:hidden">
             <SelectedVoiceChip onOpen={() => setSheetOpen(true)} />
@@ -34,7 +33,6 @@ export default function TtsPage() {
           <div className="pt-2 lg:pt-0">
             <ComposePanel />
           </div>
-          <UsageGuide />
           {/* MOBILE ONLY: Support, VietQR & Capacity Notice */}
           <div className="border-t border-[var(--color-border)] pt-4 lg:hidden">
             <SupportPanel />
@@ -42,8 +40,8 @@ export default function TtsPage() {
         </section>
 
         {/* RIGHT 30% COLUMN: Voice Catalog & Support Panel */}
-        <section className="hidden space-y-3 lg:block">
-          <div className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <section className="hidden lg:block sticky top-6 h-[calc(100vh-3rem)]">
+          <div className="rounded-[var(--radius-panel)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 flex flex-col h-full overflow-hidden">
             {/* Tab switchers */}
             <div className="mb-4 flex items-center gap-1.5 rounded-lg bg-[var(--color-surface-soft)] p-1 border border-[var(--color-border)]">
               <button

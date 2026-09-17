@@ -27,8 +27,8 @@ export const VoiceCard = memo(function VoiceCard({
 
   return (
     <article
-      style={{ contentVisibility: 'auto', containIntrinsicSize: '140px' }}
-      className={`min-w-0 overflow-hidden rounded-[var(--radius-control)] border p-3.5 transition-colors duration-150 ${
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '100px' }}
+      className={`min-w-0 overflow-hidden rounded-[var(--radius-control)] border p-2.5 transition-colors duration-150 ${
         selected
           ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
           : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-muted)]'
@@ -36,15 +36,15 @@ export const VoiceCard = memo(function VoiceCard({
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 grow">
-          <h3 className="text-sm font-semibold whitespace-normal break-words">
+          <h3 className="text-sm font-semibold whitespace-normal break-words leading-tight">
             {voice.engine === 'voicevox' && <span className="text-[var(--color-primary)]">[{voice.id}] </span>}
             {voice.name}
           </h3>
         </div>
         <VoicePreviewButton voice={voice} active={active} loading={loading} onToggle={onToggle} />
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-[var(--color-muted)]">
-        <FlagIcon country={voice.language} className="size-3.5 shrink-0 rounded-xs" />
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
+        <FlagIcon country={voice.language} className="size-3 shrink-0 rounded-xs" />
         <span className="font-medium text-[var(--color-text)]">{voice.engine}</span>
         <span aria-hidden="true">·</span>
         <span>{t(`voice.${voice.gender}`)} {voice.age ? ` (${voice.age})` : ''}</span>
@@ -56,20 +56,21 @@ export const VoiceCard = memo(function VoiceCard({
         )}
       </div>
       <Button
+        size="sm"
         variant={selected ? 'secondary' : 'quiet'}
-        className="mt-3 w-full"
+        className="mt-2.5 w-full"
         onClick={onSelect}
       >
         {selected ? (
           <>
-            <Check className="shrink-0" size={15} />
+            <Check className="shrink-0" size={14} />
             <span>{t('voice.selected')}</span>
           </>
         ) : (
           <span>{t('voice.select')}</span>
         )}
       </Button>
-      {previewUnavailable && <p role="alert" className="mt-2 text-xs leading-5 text-[var(--color-warning)]">{t('voice.previewUnavailable')}</p>}
+      {previewUnavailable && <p role="alert" className="mt-1.5 text-[11px] leading-snug text-[var(--color-warning)]">{t('voice.previewUnavailable')}</p>}
     </article>
   )
 })

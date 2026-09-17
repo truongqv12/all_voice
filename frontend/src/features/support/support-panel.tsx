@@ -15,7 +15,7 @@ export function SupportPanel() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 flex-1 overflow-y-auto min-h-0 pr-2 -mr-2 pb-4">
       {/* SECTION 1: VietQR & Community Donate */}
       <section className="rounded-[var(--radius-control)] border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
         <div className="flex items-start gap-2.5">

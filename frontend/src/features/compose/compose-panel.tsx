@@ -18,20 +18,19 @@ export function ComposePanel() {
   const { t } = useTranslation()
   const { selectedVoice, style } = useSelection()
   const [text, setText] = useState('')
-  const [speed, setSpeed] = useState(1)
   const [format, setFormat] = useState<AudioFormat>('mp3')
   const job = useGenerate()
 
   const isBlocked = !selectedVoice || !text.trim() || text.length > textLimits.hard || job.state === 'generating'
-  const params = selectedVoice && { text, voiceId: selectedVoice.id, engine: selectedVoice.engine, style, speed, format }
+  const params = selectedVoice && { text, voiceId: selectedVoice.id, engine: selectedVoice.engine, style, speed: 1, format }
 
   useEffect(() => {
     const running = job.lastParams
     if (job.state !== 'generating' || !running) return
-    if (!selectedVoice || running.text !== text || running.voiceId !== selectedVoice.id || running.style !== style || running.speed !== speed || running.format !== format) {
+    if (!selectedVoice || running.text !== text || running.voiceId !== selectedVoice.id || running.style !== style || running.speed !== 1 || running.format !== format) {
       job.cancel()
     }
-  }, [text, selectedVoice, style, speed, format, job])
+  }, [text, selectedVoice, style, format, job])
 
   return (
     <div className="space-y-4">
@@ -46,7 +45,7 @@ export function ComposePanel() {
 
       <CharCounter count={text.length} />
 
-      <SynthControls speed={speed} format={format} onSpeed={setSpeed} onFormat={setFormat} />
+      <SynthControls format={format} onFormat={setFormat} />
 
       <LimitStates kind={job.error as LimitKind} />
 
