@@ -25,7 +25,7 @@ import threading
 
 import numpy as np
 
-from .base import AudioResult, SubtitleTimingCue, Voice, VoiceBackend
+from .base import AudioResult, InvalidOption, SubtitleTimingCue, Voice, VoiceBackend
 from ..streaming import sentence_split
 
 
@@ -37,6 +37,50 @@ def _decode_wav_f32(wav_bytes: bytes) -> tuple[np.ndarray, int]:
     if pcm.ndim > 1:  # downmix if ever multi-channel
         pcm = pcm.mean(axis=1)
     return np.asarray(pcm, dtype=np.float32).reshape(-1), int(sr)
+
+
+# VOICEVOX AudioQuery prosody knobs, read from the request `extra` bag by name.
+# Speed has its own top-level `speed` param; these cover the rest of the query.
+# `pause_length_scale` (間 — the gap between phrases/sentences) is the strongest
+# lever for an elderly audience that needs time to follow; `intonation_scale`
+# (抑揚) calms an otherwise brisk announcer read. Each is applied only if the
+# running voicevox_core exposes that attribute, so an older core silently
+# ignores a knob it lacks instead of raising.
+_QUERY_TUNING_KEYS = (
+    "pause_length_scale",
+    "intonation_scale",
+    "pitch_scale",
+    "volume_scale",
+)
+
+
+def _tuning_from_options(options: dict | None) -> dict[str, float]:
+    """Positive-float VOICEVOX query knobs pulled from the request options.
+
+    Raises InvalidOption (→ HTTP 400) on a non-numeric or non-positive value so a
+    typo fails loudly instead of rendering at an unintended setting."""
+    if not options:
+        return {}
+    tuning: dict[str, float] = {}
+    for key in _QUERY_TUNING_KEYS:
+        raw = options.get(key)
+        if raw is None:
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            raise InvalidOption(f"VOICEVOX option {key!r} must be a number, got {raw!r}")
+        if value <= 0:
+            raise InvalidOption(f"VOICEVOX option {key!r} must be > 0, got {value}")
+        tuning[key] = value
+    return tuning
+
+
+def _apply_query_tuning(query, tuning: dict[str, float]) -> None:
+    """Set each requested knob on the AudioQuery, skipping any the core lacks."""
+    for key, value in tuning.items():
+        if hasattr(query, key):
+            setattr(query, key, value)
 
 
 class VoicevoxBackend(VoiceBackend):
@@ -126,18 +170,21 @@ class VoicevoxBackend(VoiceBackend):
         vvm_path = self._style_to_vvm.get(style_id)
         if vvm_path is None:
             raise ValueError(f"Unknown VOICEVOX style id: {voice!r}")
+        tuning = _tuning_from_options(options)
         with self._lock:
             synth = self._load_voice_model(vvm_path)
-            if abs(float(speed) - 1.0) < 1e-6:
+            if abs(float(speed) - 1.0) < 1e-6 and not tuning:
                 wav = synth.tts(text, style_id)
             else:
-                # tts() has no speed knob -> go through an audio query and set
-                # speed_scale. Method name differs across core versions.
+                # tts() exposes no prosody knobs -> go through an audio query when
+                # speed differs from 1.0 OR any query tuning was requested, and set
+                # the fields. Method name differs across core versions.
                 make_query = getattr(synth, "create_audio_query", None) or getattr(
                     synth, "audio_query"
                 )
                 query = make_query(text, style_id)
                 query.speed_scale = float(speed)
+                _apply_query_tuning(query, tuning)
                 wav = synth.synthesis(query, style_id)
         pcm, sr = _decode_wav_f32(wav)
         return AudioResult(pcm=pcm, sample_rate=sr)
