@@ -44,18 +44,27 @@ def _decode_wav_f32(wav_bytes: bytes) -> tuple[np.ndarray, int]:
 
 
 # VOICEVOX AudioQuery prosody knobs, read from the request `extra` bag by name.
-# Speed has its own top-level `speed` param; these cover the rest of the query.
-# `pause_length_scale` (間 — the gap between phrases/sentences) is the strongest
-# lever for an elderly audience that needs time to follow; `intonation_scale`
-# (抑揚) calms an otherwise brisk announcer read. Each is applied only if the
-# running voicevox_core exposes that attribute, so an older core silently
-# ignores a knob it lacks instead of raising.
+# Speed has its own top-level `speed` param; these are set straight onto the query
+# and cover the rest of it. `intonation_scale` (抑揚) calms a brisk announcer read;
+# `pre_/post_phoneme_length` add head/tail silence. Each is applied only if the
+# running voicevox_core exposes that attribute, so an older core silently ignores a
+# knob it lacks instead of raising.
 _QUERY_TUNING_KEYS = (
-    "pause_length_scale",
     "intonation_scale",
     "pitch_scale",
     "volume_scale",
+    "pre_phoneme_length",
+    "post_phoneme_length",
 )
+
+# `pause_length_scale` (間 — the gap between phrases/sentences) is the strongest
+# lever for an elderly audience that needs time to follow, but it is NOT an
+# AudioQuery field in voicevox_core (it exists only on the voicevox ENGINE HTTP
+# API). The core carries each inter-phrase/sentence pause as the accent phrase's
+# optional `pause_mora`, so we scale those lengths ourselves — see
+# `_apply_pause_scale`. Kept in the request contract under the same name.
+_PAUSE_SCALE_KEY = "pause_length_scale"
+_ALL_TUNING_KEYS = _QUERY_TUNING_KEYS + (_PAUSE_SCALE_KEY,)
 
 
 def _tuning_from_options(options: dict | None) -> dict[str, float]:
@@ -66,7 +75,7 @@ def _tuning_from_options(options: dict | None) -> dict[str, float]:
     if not options:
         return {}
     tuning: dict[str, float] = {}
-    for key in _QUERY_TUNING_KEYS:
+    for key in _ALL_TUNING_KEYS:
         raw = options.get(key)
         if raw is None:
             continue
@@ -81,10 +90,32 @@ def _tuning_from_options(options: dict | None) -> dict[str, float]:
 
 
 def _apply_query_tuning(query, tuning: dict[str, float]) -> None:
-    """Set each requested knob on the AudioQuery, skipping any the core lacks."""
-    for key, value in tuning.items():
-        if hasattr(query, key):
+    """Set each direct-attribute knob on the AudioQuery, skipping any the core lacks.
+
+    `pause_length_scale` is handled separately (`_apply_pause_scale`) because the
+    core has no such attribute; it is silently ignored here."""
+    for key in _QUERY_TUNING_KEYS:
+        value = tuning.get(key)
+        if value is not None and hasattr(query, key):
             setattr(query, key, value)
+
+
+def _apply_pause_scale(query, factor: float) -> None:
+    """Lengthen every inter-phrase/sentence 間 by `factor`.
+
+    voicevox_core has no `pause_length_scale`; the pause at a 、/。 lives as the
+    preceding accent phrase's optional `pause_mora`, whose `vowel_length` is the
+    pause duration (seconds, before speed_scale). Scaling these is the core-native
+    way to give an elderly listener more room to follow. Phrases with no pause
+    (mid-clause) have `pause_mora=None` and are left untouched."""
+    if factor == 1.0:
+        return
+    for phrase in getattr(query, "accent_phrases", None) or []:
+        pause = getattr(phrase, "pause_mora", None)
+        if pause is not None:
+            length = getattr(pause, "vowel_length", None)
+            if length:
+                pause.vowel_length = float(length) * factor
 
 
 def _apply_user_dict(ojt, path: str) -> None:
@@ -238,6 +269,9 @@ class VoicevoxBackend(VoiceBackend):
                 query = make_query(text, style_id)
                 query.speed_scale = float(speed)
                 _apply_query_tuning(query, tuning)
+                pause_scale = tuning.get(_PAUSE_SCALE_KEY)
+                if pause_scale is not None:
+                    _apply_pause_scale(query, pause_scale)
                 wav = synth.synthesis(query, style_id)
         pcm, sr = _decode_wav_f32(wav)
         return AudioResult(pcm=pcm, sample_rate=sr)
