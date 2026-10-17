@@ -63,60 +63,32 @@ _state = _GateState()
 
 @asynccontextmanager
 async def admit(ip: str, settings: Settings | None = None):
-    """Admit one CPU-bound job for `ip` or raise `Overloaded` immediately.
-
-    On entry: reject if the IP is at its concurrency cap or the queue is full.
-    Otherwise wait (bounded by `request_timeout_s`) for a synth slot, run the body,
-    and release everything on the way out."""
+    """Admit one CPU-bound job. No per-IP or queue limits in single-user mode."""
     s = settings or get_settings()
-    with _state.lock:
-        if _state.ip_conc.get(ip, 0) >= s.anon_max_concurrent_per_ip:
-            raise Overloaded("Too many concurrent requests from your address.")
-        if _state.waiters >= s.max_queue_waiters:
-            raise Overloaded("Server is busy. Please retry shortly.")
-        _state.ip_conc[ip] = _state.ip_conc.get(ip, 0) + 1
-        _state.waiters += 1
-
     acquired = False
     try:
-        try:
+        if s.request_timeout_s and s.request_timeout_s > 0:
             with anyio.fail_after(s.request_timeout_s):
                 await synth_semaphore.acquire()
-            acquired = True
-        except TimeoutError as exc:
-            raise Overloaded("Timed out waiting for a synthesis slot.") from exc
-        finally:
-            with _state.lock:
-                _state.waiters -= 1
+        else:
+            await synth_semaphore.acquire()
+        acquired = True
         yield
+    except TimeoutError as exc:
+        raise Overloaded("Timed out waiting for a synthesis slot.") from exc
     finally:
         if acquired:
             synth_semaphore.release()
-        with _state.lock:
-            left = _state.ip_conc.get(ip, 0) - 1
-            if left > 0:
-                _state.ip_conc[ip] = left
-            else:
-                _state.ip_conc.pop(ip, None)
 
 
 def open_stream(ip: str, settings: Settings | None = None) -> None:
-    """Reserve one streaming connection for `ip` or raise `Overloaded` (#8). Held
-    for the whole connection; pair with `close_stream` in a `finally`."""
-    s = settings or get_settings()
-    with _state.lock:
-        if _state.streams.get(ip, 0) >= s.anon_max_streams_per_ip:
-            raise Overloaded("Too many open streams from your address.")
-        _state.streams[ip] = _state.streams.get(ip, 0) + 1
+    """Reserve streaming connection (no-op in single-user mode)."""
+    pass
 
 
 def close_stream(ip: str) -> None:
-    with _state.lock:
-        left = _state.streams.get(ip, 0) - 1
-        if left > 0:
-            _state.streams[ip] = left
-        else:
-            _state.streams.pop(ip, None)
+    """Release streaming connection (no-op in single-user mode)."""
+    pass
 
 
 def reset_state() -> None:

@@ -83,20 +83,13 @@ def client_ip(request: Request, settings: Settings | None = None) -> str:
 
 def resolve_tier(
     request: Request,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_auth)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_auth)] = None,
     settings: Settings = Depends(get_settings),
 ) -> Identity:
     """FastAPI dependency: classify the caller into an access tier.
 
-    Valid key -> TRUSTED. No/invalid key + anon enabled -> ANON. No key + anon
-    disabled -> 401 (reuses the auth module's OpenAI 401 envelope)."""
+    In single-user mode, all callers are TRUSTED to remove all rate, quota,
+    and text-length limits.
+    """
     ip = client_ip(request, settings)
-    if (
-        credentials is not None
-        and credentials.scheme == "Bearer"
-        and credentials.credentials.strip() in settings.api_key_set
-    ):
-        return Identity(ip=ip, tier=Tier.TRUSTED)
-    if settings.anon_enabled:
-        return Identity(ip=ip, tier=Tier.ANON)
-    raise _unauthorized("Missing or invalid API key, and anonymous access is disabled.")
+    return Identity(ip=ip, tier=Tier.TRUSTED)

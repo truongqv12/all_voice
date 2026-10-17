@@ -28,7 +28,7 @@ from ..voice_store import voice_store
 
 router = APIRouter()
 
-MAX_SAMPLE_BYTES = 10 * 1024 * 1024  # OpenAI limit: 10 MiB
+MAX_SAMPLE_BYTES = 50 * 1024 * 1024  # 50 MiB limit
 
 
 def _error(status_code: int, message: str, code: str) -> HTTPException:

@@ -37,7 +37,7 @@ from ..schemas import TranscriptionResponseFormat, TranscriptionVerbose
 router = APIRouter()
 log = get_logger("transcribe")
 
-MAX_AUDIO_BYTES = 25 * 1024 * 1024  # OpenAI limit: 25 MiB
+MAX_AUDIO_BYTES = 500 * 1024 * 1024  # 500 MiB limit for self-hosted use
 _PLAIN = "text/plain; charset=utf-8"
 
 

@@ -25,8 +25,8 @@ class SpeechRequest(BaseModel):
         examples=["vieneu"],
     )
     input: str = Field(
-        min_length=1, max_length=4096,
-        description="Văn bản cần đọc (≤ 4096 ký tự). Dấu câu tạo ngắt nghỉ; nhúng cue như `[cười]`; chuyển ngữ Việt⇄Anh chạy inline.",
+        min_length=1,
+        description="Văn bản cần đọc. Dấu câu tạo ngắt nghỉ; nhúng cue như `[cười]`; chuyển ngữ Việt⇄Anh chạy inline.",
         examples=["Xin chào, đây là all-voice."],
     )
     # OpenAI accepts a voice name string OR a custom-voice object {"id": "..."}.
