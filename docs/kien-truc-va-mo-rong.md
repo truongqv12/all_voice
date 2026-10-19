@@ -95,6 +95,9 @@ serialize bằng một khóa (lock) trong backend.
 | `app/backends/base.py` | **Interface `VoiceBackend`** + `Voice`, `AudioResult` |
 | `app/backends/registry.py` | Bảng `model -> backend`, chọn backend mặc định |
 | `app/backends/vieneu_backend.py` | Adapter VieNeu (1 engine chung; CPU=ONNX, clone cần torch) |
+| `app/backends/kokoro_backend.py` | Adapter Kokoro (28 giọng preset tiếng Anh, ONNX) |
+| `app/backends/voicevox_backend.py` | Adapter VOICEVOX (preset tiếng Nhật đa phong cách, VVM) |
+| `app/backends/capcut_backend.py` | Adapter CapCut Cloud TTS (24 giọng preset tiếng Việt `vi-VN`) |
 | `app/audio/encoder.py` | PCM → mp3/opus/aac/flac/wav/pcm (PyAV + stdlib) |
 | `app/voice_store.py` | Lưu mẫu giọng clone + registry.json (đĩa) |
 | `app/routers/speech.py` | `POST /v1/audio/speech` |
@@ -129,6 +132,14 @@ serialize bằng một khóa (lock) trong backend.
 | `VOICEVOX_VVM_DIR` | `models/voicevox/vvms` | Thư mục chứa file VVM (voice model) |
 | `VOICEVOX_ONNXRUNTIME` | `models/voicevox/onnxruntime/lib/libvoicevox_onnxruntime.so` | Lib ONNX Runtime (wheel KHÔNG kèm sẵn); `fetch-voicevox.sh` tải về path này + symlink độc lập version. Rỗng = dùng runtime sẵn trên loader path |
 | `VOICEVOX_SPEAKER_ALLOWLIST` | *(bỏ trống)* | Lọc `style_id`/`uuid:style_id` được expose; rỗng = tất cả |
+| `ENABLE_CAPCUT` | `true` | Bật engine CapCut (24 giọng đám mây Tiếng Việt vi-VN) |
+| `CAPCUT_VOICES_PATH` | `app/data/capcut_voices.json` | Đường dẫn file catalog 24 giọng CapCut vi-VN |
+| `CAPCUT_DEFAULT_VOICE` | `BV421_vivn_streaming` | Giọng mặc định fallback của CapCut (Nhỏ Ngọt Ngào) |
+| `CAPCUT_BASE_URL` | `https://editor-api-sg.capcutapi.com` | Base URL của CapCut Desktop API |
+| `CAPCUT_TIMEOUT_S` | `60.0` | Tổng thời gian tối đa (deadline) cho một lượt synth CapCut (giây) |
+| `CAPCUT_POLL_INTERVAL_S` | `1.0` | Khoảng thời gian giãn cách giữa các lần poll task query (giây) |
+| `CAPCUT_COOKIE` | *(bỏ trống)* | Header `Cookie` tùy chọn gửi kèm khi gọi CapCut API |
+| `CAPCUT_BEARER` | *(bỏ trống)* | Token `Authorization: Bearer` tùy chọn gửi kèm khi gọi CapCut API |
 | `HF_HOME` | *(bỏ trống)* | Đổi thư mục cache model (xem mục 8) |
 
 **Knob tinh chỉnh** (gửi qua `extra_body` của OpenAI SDK; client thường không bị
@@ -412,6 +423,17 @@ expose. **Credit** nhân vật nhúng sẵn trong `Voice.name` (chuỗi `VOICEVO
 `resolve_voice`, decode WAV, parse style/allowlist — **không cần model**. Test sinh
 voice thật + round-trip TTS→ASR nằm dưới marker `synth`, **skip gọn** khi asset
 vắng (`tests/test_kokoro.py`, `tests/test_voicevox.py`, `tests/test_tts_asr_roundtrip.py`).
+
+### 12.1 Engine đám mây CapCut (Tiếng Việt, 24 giọng preset)
+
+Adapter `app/backends/capcut_backend.py` (`model="capcut"`) cho phép sử dụng 24 giọng Tiếng Việt (`vi-VN`) từ dịch vụ CapCut Desktop API:
+
+- **Tự chủ & không phụ thuộc**: Port idiomatic từ dự án `capcut-tts-api` (v1.5.0), độc lập hoàn toàn với thư mục phân tích.
+- **Ký request**: Toàn bộ thuật toán ký HTTP header (`sign`, `x-ss-stub`) và payload RSA PKCS#1 v1.5 được hiện thực bằng thư viện chuẩn Python (thuần Python, không cần binary phụ thuộc ngoài).
+- **Giải mã âm thanh in-memory**: Audio MP3 trả về từ CDN CapCut được tải trực tiếp vào RAM (`io.BytesIO`) và giải mã bằng `PyAV` (`av.open()`) sang mảng mono `np.float32` PCM trong khoảng `[-1.0, 1.0]`. Hoàn toàn tương thích với bộ mã hóa đa định dạng (`mp3/wav/opus/aac/flac/pcm`), bộ nhớ đệm `result_cache`, nghe thử `previews` và streaming mà không ghi file tạm ra ổ đĩa.
+- **24 Giọng Tiếng Việt**: Lưu trong `app/data/capcut_voices.json` gồm các giọng phổ biến: Nhỏ Ngọt Ngào (`BV421_vivn_streaming`), Giọng Nữ Phổ Thông (`vi_female_huong`), Cô Gái Hoạt Ngôn (`BV074_streaming`), Ban Mai, Review Phim, Kenny Đại Đế, Thanh Niên Tự Tin...
+- **Tích hợp Frontend**: Hiển thị nhãn **CapCut** trong bộ chọn model và tự động suy luận giới tính giọng đọc (`female`/`male`/`neutral`).
+- **Tạo phụ đề**: Khi người dùng tạo giọng đọc kèm phụ đề, hệ thống tự động định tuyến qua luồng ASR `faster-whisper` chuẩn sẵn có.
 
 ---
 
