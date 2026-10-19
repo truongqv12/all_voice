@@ -74,6 +74,24 @@ export const voiceFixtures: Voice[] = [
     styles: ['Hào sảng', 'Thuyết minh', 'Kịch tính'],
     description: 'Giọng nam miền Nam, nội lực mạnh, giàu cảm xúc cho phim tài liệu.',
   },
+  {
+    id: 'BV421_vivn_streaming',
+    name: 'Nhỏ Ngọt Ngào',
+    language: 'vi',
+    engine: 'capcut',
+    gender: 'female',
+    styles: [],
+    description: 'VI · capcut',
+  },
+  {
+    id: 'BV075_streaming',
+    name: 'Thanh Niên Tự Tin',
+    language: 'vi',
+    engine: 'capcut',
+    gender: 'male',
+    styles: [],
+    description: 'VI · capcut',
+  },
 
   // --- ENGLISH VOICES ---
   {

@@ -6,7 +6,7 @@ export interface Voice {
   id: string
   name: string
   language: VoiceLanguage
-  engine: 'vieneu' | 'kokoro' | 'voicevox' | 'clone'
+  engine: 'vieneu' | 'kokoro' | 'voicevox' | 'capcut' | 'clone'
   gender: VoiceGender
   age?: string
   styles: string[]

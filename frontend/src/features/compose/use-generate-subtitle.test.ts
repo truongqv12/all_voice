@@ -31,5 +31,7 @@ describe('nativeCuesToSubtitleCues', () => {
     expect(shouldUseNativeTiming('voicevox', 'line')).toBe(true)
     expect(shouldUseNativeTiming('voicevox', 'word')).toBe(false)
     expect(shouldUseNativeTiming('vieneu', 'line')).toBe(false)
+    expect(shouldUseNativeTiming('capcut', 'line')).toBe(false)
+    expect(shouldUseNativeTiming('capcut', 'word')).toBe(false)
   })
 })

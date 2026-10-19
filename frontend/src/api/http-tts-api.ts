@@ -5,13 +5,13 @@ import type { Voice, SynthParams, SynthResult } from './types';
 interface VoiceItem {
   id: string;
   name: string;
-  model: 'vieneu' | 'kokoro' | 'voicevox' | 'clone';
+  model: 'vieneu' | 'kokoro' | 'voicevox' | 'capcut' | 'clone';
   language: string;
   styles?: string[];
   preview_url?: string;
 }
 
-const voiceCache = new Map<string, { engine: 'vieneu' | 'kokoro' | 'voicevox' | 'clone'; styles: string[]; previewUrl?: string }>();
+const voiceCache = new Map<string, { engine: 'vieneu' | 'kokoro' | 'voicevox' | 'capcut' | 'clone'; styles: string[]; previewUrl?: string }>();
 
 const BASE_URL = import.meta.env.VITE_API_BASE || '/v1';
 
@@ -74,7 +74,7 @@ export const httpTtsApi: TtsApi = {
       const previewUrl = item.preview_url;
       const engine = item.model;
       
-      let cleanName = item.name;
+      let cleanName = item.name.trim();
       if (engine === 'voicevox') {
         cleanName = cleanName.replace(/ · VOICEVOX:.*$/, '');
         for (const [jp, vn] of Object.entries(JP_STYLE_MAP)) {
@@ -94,6 +94,32 @@ export const httpTtsApi: TtsApi = {
             age = meta.age;
             break;
           }
+        }
+      } else if (engine === 'capcut') {
+        const idLower = item.id.toLowerCase();
+        const nameLower = cleanName.toLowerCase();
+        if (
+          nameLower.includes('nam ') ||
+          nameLower.includes('giọng nam') ||
+          nameLower.includes('thanh niên') ||
+          nameLower.includes('đại đế') ||
+          nameLower.includes('robot') ||
+          idLower.startsWith('bv075') ||
+          idLower.includes('_male_') ||
+          idLower.includes('namminh')
+        ) {
+          gender = 'male';
+        } else if (
+          nameLower.includes('nữ') ||
+          nameLower.includes('cô gái') ||
+          nameLower.includes('nhỏ') ||
+          nameLower.includes('mai') ||
+          nameLower.includes('gái') ||
+          nameLower.includes('sunny') ||
+          idLower.includes('female') ||
+          idLower.includes('hoaimy')
+        ) {
+          gender = 'female';
         }
       }
       
