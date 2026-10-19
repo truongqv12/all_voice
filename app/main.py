@@ -57,6 +57,16 @@ def _register_backends() -> None:
                 log.info("voicevox not registered: install `ja` extra + run scripts/fetch-voicevox.sh")
         except Exception as exc:
             log.warning("voicevox backend skipped: %s", exc)
+    if settings.enable_capcut:
+        try:
+            from .backends.capcut_backend import CapCutBackend
+
+            if CapCutBackend.is_available(settings):
+                registry.register(CapCutBackend(settings), default=False)
+            else:
+                log.info("capcut not registered: missing %s or invalid voices catalog", settings.capcut_voices_path)
+        except Exception as exc:
+            log.warning("capcut backend skipped: %s", exc)
 
 
 def _reenrol_cloned_voices() -> None:
@@ -77,9 +87,10 @@ def _reenrol_cloned_voices() -> None:
 API_DESCRIPTION = """
 Cổng Text-to-Speech **tương thích OpenAI, đa engine**. Mỗi engine đăng ký theo
 ngôn ngữ và tự xuất hiện trong `/v1/models` + `/v1/voices` khi asset đã cài:
-**VieNeu-TTS** (tiếng Việt, có clone) · **Kokoro-82M** (tiếng Anh, giọng preset) ·
-**VOICEVOX** (tiếng Nhật, giọng preset). VieNeu là backend **mặc định** cho các tên
-`model` kiểu OpenAI. Chọn ngôn ngữ bằng cách chọn `model` + `voice`.
+**VieNeu-TTS** (tiếng Việt, có clone) · **CapCut** (tiếng Việt, 24 giọng cloud preset) ·
+**Kokoro-82M** (tiếng Anh, giọng preset) · **VOICEVOX** (tiếng Nhật, giọng preset).
+VieNeu là backend **mặc định** cho các tên `model` kiểu OpenAI. Chọn ngôn ngữ bằng
+cách chọn `model` + `voice`.
 
 **Xác thực & tầng truy cập** — khi `ANON_ENABLED=true`, `/v1/audio/speech`, `/v1/audio/stream`
 và `/v1/audio/transcriptions` chạy **không cần key** (tầng ANON: rate-limit + budget/ngày

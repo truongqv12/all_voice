@@ -137,6 +137,17 @@ class Settings(BaseSettings):
     # missing file = no overrides. See the file for the schema.
     voicevox_user_dict: str = "app/data/voicevox_user_dict.json"
 
+    # --- CapCut (Vietnamese cloud preset TTS) ---
+    enable_capcut: bool = True
+    capcut_voices_path: str = "app/data/capcut_voices.json"
+    capcut_default_voice: str = "BV421_vivn_streaming"
+    capcut_base_url: str = "https://editor-api-sg.capcutapi.com"
+    capcut_timeout_s: float = 60.0
+    capcut_poll_interval_s: float = 1.0
+    capcut_cookie: str = ""
+    capcut_bearer: str = ""
+
+
     # --- Voice previews ("nghe thử") ---
     # Where per-voice preview mp3s + sidecars are cached (safe to delete;
     # regenerates on next request/warm).

@@ -17,6 +17,7 @@ build/
 /data/
 /logs/
 /.hf_cache/
+/phan_tich/
 
 # --- Downloaded TTS model assets (large; fetched via scripts/, not committed) ---
 # Kept out of the tree except the .gitkeep placeholder.

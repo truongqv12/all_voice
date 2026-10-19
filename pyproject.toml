@@ -14,6 +14,7 @@ dependencies = [
     "numpy>=1.26,<2.3",
     "av>=13.0",
     "python-multipart>=0.0.9",
+    "requests>=2.31",
     "vieneu>=3.8.3",
 ]
 
