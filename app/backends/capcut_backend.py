@@ -248,7 +248,55 @@ def _checked_json_response(resp: Any, label: str) -> dict[str, Any]:
 _OPUS_SAFE_RATES = (8000, 12000, 16000, 24000, 48000)
 
 
-def _decode_mp3_bytes(audio_bytes: bytes) -> tuple[np.ndarray, int]:
+def _apply_atempo_f32(pcm: np.ndarray, sample_rate: int, speed: float) -> np.ndarray:
+    """Apply FFmpeg pitch-preserving WSOLA time-scale (atempo) to mono float32 PCM."""
+    speed_val = max(0.25, min(4.0, float(speed)))
+    if abs(speed_val - 1.0) <= 1e-3 or len(pcm) == 0:
+        return pcm
+
+    graph = av.filter.Graph()
+    src = graph.add(
+        "abuffer",
+        f"time_base=1/{sample_rate}:sample_rate={sample_rate}:sample_fmt=fltp:channel_layout=mono",
+    )
+    last = src
+    rem = speed_val
+    while rem < 0.5:
+        node = graph.add("atempo", "0.5")
+        last.link_to(node)
+        last = node
+        rem /= 0.5
+    node = graph.add("atempo", f"{rem:.4f}")
+    last.link_to(node)
+    last = node
+
+    fmt = graph.add("aformat", f"sample_fmts=fltp:channel_layouts=mono:sample_rates={sample_rate}")
+    last.link_to(fmt)
+    sink = graph.add("abuffersink")
+    fmt.link_to(sink)
+    graph.configure()
+
+    in_frame = av.AudioFrame.from_ndarray(pcm.reshape(1, -1), format="fltp", layout="mono")
+    in_frame.sample_rate = sample_rate
+    in_frame.pts = 0
+
+    out_frames: list[np.ndarray] = []
+    src.push(in_frame)
+    src.push(None)
+    while True:
+        try:
+            f = sink.pull()
+            out_frames.append(f.to_ndarray().reshape(-1))
+        except (av.BlockingIOError, av.EOFError):
+            break
+
+    if not out_frames:
+        return pcm
+    stretched = np.concatenate(out_frames).astype(np.float32, copy=False)
+    return np.clip(stretched, -1.0, 1.0)
+
+
+def _decode_mp3_bytes(audio_bytes: bytes, speed: float = 1.0) -> tuple[np.ndarray, int]:
     """Decode in-memory MP3 bytes to mono float32 PCM and Opus-safe sample rate using PyAV."""
     if not audio_bytes:
         raise RuntimeError("Empty audio bytes received from CapCut CDN")
@@ -286,6 +334,8 @@ def _decode_mp3_bytes(audio_bytes: bytes) -> tuple[np.ndarray, int]:
 
     pcm = np.concatenate(frames).astype(np.float32, copy=False)
     pcm = np.clip(pcm, -1.0, 1.0)
+    if abs(float(speed or 1.0) - 1.0) > 1e-3:
+        pcm = _apply_atempo_f32(pcm, int(target_rate), float(speed))
     return pcm, int(target_rate)
 
 
@@ -593,5 +643,5 @@ class CapCutBackend(VoiceBackend):
         if dl_resp.status_code >= 400:
             raise RuntimeError(f"Failed to download audio from CapCut CDN (HTTP {dl_resp.status_code})")
 
-        pcm, sample_rate = _decode_mp3_bytes(dl_resp.content)
+        pcm, sample_rate = _decode_mp3_bytes(dl_resp.content, speed=speed_val)
         return AudioResult(pcm=pcm, sample_rate=sample_rate)

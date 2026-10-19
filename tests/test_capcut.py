@@ -123,6 +123,11 @@ def test_capcut_decode_mp3_bytes_in_memory():
     assert len(pcm_decoded) > 0.2 * sr
     assert_real_audio(pcm_decoded, decoded_sr)
 
+    # Speed scaling via FFmpeg atempo (1.5x -> ~67% duration)
+    pcm_fast, fast_sr = _decode_mp3_bytes(mp3_bytes, speed=1.5)
+    assert fast_sr == sr
+    assert len(pcm_fast) < 0.8 * len(pcm_decoded)
+
 
 def test_capcut_decode_stereo_44100_mp3_and_encode_opus():
     import av
